@@ -1,0 +1,14 @@
+diffusers==0.23.1
+transformers
+gradio==4.7.1
+--extra-index-url https://download.pytorch.org/whl/cu121
+torch==2.1.0
+fastapi==0.104.0
+uvicorn==0.23.2
+Pillow==10.1.0
+accelerate==0.24.0
+compel==2.0.2
+controlnet-aux==0.0.7
+peft==0.6.0
+xformers
+hf_transfer
