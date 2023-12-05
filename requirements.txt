@@ -12,3 +12,4 @@ controlnet-aux==0.0.7
 peft==0.6.0
 xformers
 hf_transfer
+google-cloud-translate==2.0.1

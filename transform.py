@@ -1,3 +1,6 @@
+from google.cloud import translate_v2 as translate
+from google.oauth2 import service_account
+
 import zmq
 import json
 import base64
@@ -58,6 +61,14 @@ if show_window:
     cv2.namedWindow("canvas", cv2.WND_PROP_FULLSCREEN)
     cv2.setWindowProperty("canvas", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
+def translate_text(target: str, text: str) -> dict:
+    credentials = service_account.Credentials.from_service_account_file('service_account.json')
+    translate_client = translate.Client(credentials=credentials)
+    if isinstance(text, bytes):
+        text = text.decode("utf-8")
+    result = translate_client.translate(text, target_language=target)
+    return result['translateText']
+
 try:
     while True:
         try:
@@ -77,7 +88,7 @@ try:
             elif msg.startswith("/size"):
                 size = int(msg.split(" ")[1])
             else:
-                prompt = msg
+                prompt = translate_text(msg)
                 print("Received prompt:", prompt)
         except zmq.Again:
             pass
