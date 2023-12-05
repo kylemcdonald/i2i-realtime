@@ -1,15 +1,14 @@
 import zmq
-import time
-from itertools import cycle
-import base64
 import readline
+import argparse
 
-fps = 15
-n_frames = 5632
+parser = argparse.ArgumentParser()
+parser.add_argument('--port', type=int, default=5556, help='Port number')
+args = parser.parse_args()
 
 context = zmq.Context()
 publisher = context.socket(zmq.PUB)
-publisher.bind('tcp://*:5556')
+publisher.bind(f'tcp://*:{args.port}')
 
 previous_msg = ''
 try:

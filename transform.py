@@ -3,6 +3,7 @@ import json
 import base64
 import cv2
 import numpy as np
+import argparse
 
 from diffusers import AutoPipelineForImage2Image, AutoPipelineForText2Image
 import torch
@@ -26,18 +27,24 @@ i2i_pipe = AutoPipelineForImage2Image.from_pretrained(
 i2i_pipe.to(device=torch_device, dtype=torch_dtype).to(device)
 i2i_pipe.set_progress_bar_config(disable=True)
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--input_port", type=int, default=5555, help="Input port")
+parser.add_argument("--output_port", type=int, default=5557, help="Output port")
+parser.add_argument("--prompt_port", type=int, default=5556, help="Prompt port")
+args = parser.parse_args()
+
 context = zmq.Context()
 img_subscriber = context.socket(zmq.SUB)
-img_subscriber.connect("tcp://localhost:5555")
+img_subscriber.connect(f"tcp://localhost:{args.input_port}")
 img_subscriber.setsockopt(zmq.SUBSCRIBE, b"")
 
 prompt_subscriber = context.socket(zmq.SUB)
-prompt_subscriber.connect("tcp://localhost:5556")
+prompt_subscriber.connect(f"tcp://localhost:{args.prompt_port}")
 prompt_subscriber.setsockopt(zmq.SUBSCRIBE, b"")
 
 context = zmq.Context()
 img_publisher = context.socket(zmq.PUB)
-img_publisher.bind('tcp://*:5557')
+img_publisher.bind(f"tcp://*:{args.output_port}")
 
 prompt = "A man playing piano."
 num_inference_steps = 2
