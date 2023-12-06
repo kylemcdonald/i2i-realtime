@@ -61,13 +61,13 @@ if show_window:
     cv2.namedWindow("canvas", cv2.WND_PROP_FULLSCREEN)
     cv2.setWindowProperty("canvas", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
-def translate_text(target: str, text: str) -> dict:
-    credentials = service_account.Credentials.from_service_account_file('service_account.json')
+credentials = service_account.Credentials.from_service_account_file('service_account.json')    
+def translate_to_en(text: str) -> dict:
     translate_client = translate.Client(credentials=credentials)
     if isinstance(text, bytes):
         text = text.decode("utf-8")
-    result = translate_client.translate(text, target_language=target)
-    return result['translateText']
+    result = translate_client.translate(text, target_language="en")
+    return result['translatedText']
 
 try:
     while True:
@@ -88,13 +88,15 @@ try:
             elif msg.startswith("/size"):
                 size = int(msg.split(" ")[1])
             else:
-                prompt = translate_text(msg)
+                prompt = translate_to_en(msg)
+                if prompt != msg:
+                    print("Translating from:", msg)
                 print("Received prompt:", prompt)
         except zmq.Again:
             pass
         except KeyboardInterrupt:
             raise
-        except:
+        except Exception as e:
             print("Invalid message:", msg)
 
         msg = img_subscriber.recv()
