@@ -1,20 +1,22 @@
-import zmq
 import readline
 import argparse
+import requests
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--port', type=int, default=5556, help='Port number')
 args = parser.parse_args()
 
-context = zmq.Context()
-publisher = context.socket(zmq.PUB)
-publisher.bind(f'tcp://*:{args.port}')
-
 previous_msg = ''
 try:
     while True:
         msg = input()
-        publisher.send_string(msg)
-except:
-    publisher.close()
-    context.term()
+        command = "prompt"
+        if msg.startswith('/'):
+            command = msg.split()[0][1:]
+            msg = msg[len(command)+2:]
+        url = f'http://localhost:{args.port}/{command}/{msg}'
+        print(url)
+        response = requests.get(url)
+        print(response.json())
+except KeyboardInterrupt:
+    pass

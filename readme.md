@@ -21,9 +21,9 @@ $ source venv/bin/activate
 $ pip3 install -r requirements.txt
 $ python stream-images.py --input_folder data/frames --fps 15 --port 5555 &
 $ python show-stream.py --port 5555 &
-$ python transform.py --input_port 5555 --prompt_port 5556 --output_port 5557 &
+$ python transform.py --input_port 5555 --settings_port 5556 --output_port 5557 &
 $ python show-stream.py --port 5557 &
-$ python input-publisher.py --port 5556
+$ python input-publisher.py --port 8000
 ```
 
 ## `stream-images.py`
@@ -46,4 +46,6 @@ Receives prompts and other commands as strings on port 5556.
 
 ## `input-publisher.py`
 
-Streams keyboard input to the transform.py app on port 5556.
+Streams keyboard input to the transform.py Settings subscriber app on port 5556.
+
+Chat-style commands: plain text or `/prompt` to update the prompt, and `/seed 123` to set the seed, etc.

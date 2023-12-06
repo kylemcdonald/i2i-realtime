@@ -28,7 +28,7 @@ i2i_pipe.set_progress_bar_config(disable=True)
 parser = argparse.ArgumentParser()
 parser.add_argument("--input_port", type=int, default=5555, help="Input port")
 parser.add_argument("--output_port", type=int, default=5557, help="Output port")
-parser.add_argument("--prompt_port", type=int, default=5556, help="Prompt port")
+parser.add_argument("--settings_port", type=int, default=5556, help="Settings port")
 args = parser.parse_args()
 
 context = zmq.Context()
@@ -39,7 +39,7 @@ img_subscriber.setsockopt(zmq.SUBSCRIBE, b"")
 img_publisher = context.socket(zmq.PUB)
 img_publisher.bind(f"tcp://*:{args.output_port}")
 
-settings = SettingsSubscriber(args.prompt_port)
+settings = SettingsSubscriber(args.settings_port)
 
 try:
     while True:

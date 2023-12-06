@@ -1,5 +1,7 @@
 import threading
-import zmq
+import uvicorn
+from fastapi import FastAPI
+
 from safety_checker import SafetyChecker
 from translate import Translate
 
@@ -20,69 +22,74 @@ class SettingsSubscriber:
         
     def __getitem__(self, key):
         return self.settings[key]
-        
-    def receive(self, msg):
-        print(msg)
-        try:
-            if msg.startswith("/reseed"):
-                self.settings["reseed"] = not self.settings["reseed"]
-                print("Updated reseed status:", self.settings["reseed"])
-            elif msg.startswith("/seed"):
-                self.settings["seed"] = int(msg.split(" ")[1])
-                print("Updated seed:", self.settings["seed"])
-            elif msg.startswith("/steps"):
-                self.settings["num_inference_steps"] = int(msg.split(" ")[1])
-                print("Updated num_inference_steps:", self.settings["num_inference_steps"])
-            elif msg.startswith("/guidance"):
-                self.settings["guidance_scale"] = float(msg.split(" ")[1])
-                print("Updated guidance_scale:", self.settings["guidance_scale"])
-            elif msg.startswith("/strength"):
-                self.settings["strength"] = float(msg.split(" ")[1])
-                print("Updated strength:", self.settings["strength"])
-            elif msg.startswith("/size"):
-                self.settings["size"] = int(msg.split(" ")[1])
-                print("Updated size:", self.settings["size"])
-            else:
-                prompt = self.translate.translate_to_en(msg)
-                if prompt != msg:
-                    print("Translating from:", msg)
-                if self.safety_checker(prompt) == "unsafe":
-                    print("Ignoring unsafe prompt:", prompt)
-                else:
-                    self.settings["prompt"] = prompt
-                    print("Updated prompt:", prompt)
-        except Exception as e:
-            print("Invalid message")
-            print(e)
-
 
     def run(self, port):
-        self.safety_checker = SafetyChecker()
-        self.translate = Translate()
-        
-        context = zmq.Context()
-        sub = context.socket(zmq.SUB)
-        sub.connect(f"tcp://localhost:{port}")
-        sub.setsockopt(zmq.SUBSCRIBE, b"")
-        sub.setsockopt(zmq.RCVTIMEO, 100)
+        safety_checker = SafetyChecker()
+        translate = Translate()
 
-        while not self.shutdown:
-            try:
-                self.receive(sub.recv_string())
-            except zmq.Again:
-                pass
-            
-        sub.close()
-        context.term()
-            
+        app = FastAPI()
+
+        @app.get("/prompt/{msg}")
+        async def prompt(msg: str):
+            prompt = translate.translate_to_en(msg)
+            if prompt != msg:
+                print("Translating from:", msg)
+            if safety_checker(prompt) == "unsafe":
+                print("Ignoring unsafe prompt:", prompt)
+                return {"safety": "unsafe"}
+            else:
+                self.settings["prompt"] = prompt
+                print("Updated prompt:", prompt)
+                return {"safety": "safe"}
+
+        @app.get("/reseed/{status}")
+        async def reseed(status: bool):
+            self.settings["reseed"] = status
+            print("Updated reseed status:", self.settings["reseed"])
+            return {"status": "updated"}
+
+        @app.get("/seed/{value}")
+        async def seed(value: int):
+            self.settings["seed"] = value
+            print("Updated seed:", self.settings["seed"])
+            return {"status": "updated"}
+
+        @app.get("/steps/{value}")
+        async def steps(value: int):
+            self.settings["num_inference_steps"] = value
+            print("Updated num_inference_steps:", self.settings["num_inference_steps"])
+            return {"status": "updated"}
+
+        @app.get("/guidance/{value}")
+        async def guidance(value: float):
+            self.settings["guidance_scale"] = value
+            print("Updated guidance_scale:", self.settings["guidance_scale"])
+            return {"status": "updated"}
+
+        @app.get("/strength/{value}")
+        async def strength(value: float):
+            self.settings["strength"] = value
+            print("Updated strength:", self.settings["strength"])
+            return {"status": "updated"}
+
+        @app.get("/size/{value}")
+        async def size(value: int):
+            self.settings["size"] = value
+            print("Updated size:", self.settings["size"])
+            return {"status": "updated"}
+
+        config = uvicorn.Config(app, host="localhost", port=port, log_level="info")
+        self.server = uvicorn.Server(config=config)
+        self.server.run()
+
     def close(self):
-        self.shutdown = True
-        self.thread.join()
-        
+        self.server.should_exit = True
+
 if __name__ == "__main__":
     sub = SettingsSubscriber(5556)
     try:
         input("Press Enter to stop...\n")
     except KeyboardInterrupt:
         pass
+    print(sub.settings)
     sub.close()
