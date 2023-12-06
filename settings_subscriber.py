@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from safety_checker import SafetyChecker
 from translate import Translate
 
+# todo: fix shutdown to be correct using https://github.com/encode/uvicorn/discussions/1103
 class SettingsSubscriber:
     def __init__(self, port):
         self.shutdown = False
@@ -81,9 +82,10 @@ class SettingsSubscriber:
         config = uvicorn.Config(app, host="localhost", port=port, log_level="info")
         self.server = uvicorn.Server(config=config)
         self.server.run()
-
+            
     def close(self):
         self.server.should_exit = True
+        self.thread.join()
 
 if __name__ == "__main__":
     sub = SettingsSubscriber(5556)

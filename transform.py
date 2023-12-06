@@ -4,8 +4,9 @@ import base64
 import cv2
 import numpy as np
 import argparse
+import time
 
-from diffusers import AutoPipelineForImage2Image, AutoPipelineForText2Image
+from diffusers import AutoPipelineForImage2Image
 import torch
 
 from PIL import Image
@@ -62,6 +63,7 @@ try:
         if not settings["reseed"]:
             generator = torch.manual_seed(settings["seed"])
             
+        start_time = time.time()
         results = i2i_pipe(
             prompt=settings["prompt"],
             image=input_image / 255,
@@ -71,6 +73,9 @@ try:
             strength=settings["strength"],
             output_type="np",
         )
+        duration = time.time() - start_time
+        # print("Diffusion duration", int(duration*1000), "ms")
+        
         output_image = results.images[0] * 255
     
         img_u8 = output_image.astype(np.uint8)
@@ -80,8 +85,13 @@ try:
         img_publisher.send(msg)
 
 except Exception as e:
+    print("Out of main loop")
     print(e)
+    print("closing settings")
     settings.close()
+    print("closing img_subscriber")
     img_subscriber.close()
+    print("closing img_publisher")
     img_publisher.close()
+    print("closing zmq_context")
     context.term()
