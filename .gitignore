@@ -1,2 +1,4 @@
 data
 service_account.json
+.*
+*.pyc
