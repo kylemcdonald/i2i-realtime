@@ -15,7 +15,7 @@ class SettingsSubscriber:
             "num_inference_steps": 2,
             "guidance_scale": 0.0,
             "strength": 0.7,
-            "size": 512,
+            "size": 1024,
             "prompt": "A man playing piano."
         }
         self.thread = threading.Thread(target=self.run, args=(port,))
