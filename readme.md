@@ -15,7 +15,7 @@ Example setup:
 
 ```
 $ mkdir -p data/frames && ffmpeg -i video.mp4 -vf fps=15 data/frames/%04d.jpg
-$ sudo apt install python3.10-venv
+$ sudo apt install python3.10 python3.10-dev python3.10-venv 
 $ python3 -m venv venv
 $ source venv/bin/activate
 $ pip3 install -r requirements.txt

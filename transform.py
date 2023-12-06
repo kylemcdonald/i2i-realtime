@@ -6,8 +6,13 @@ import numpy as np
 import argparse
 import time
 
+from sfast.compilers.stable_diffusion_pipeline_compiler import (
+    compile, CompilationConfig)
+
 from diffusers import AutoPipelineForImage2Image
 import torch
+import warnings
+warnings.filterwarnings("ignore", category=torch.jit.TracerWarning)
 
 from PIL import Image
 
@@ -17,14 +22,20 @@ device = torch.device("cuda")
 torch_device = device
 torch_dtype = torch.float16
 
-i2i_pipe = AutoPipelineForImage2Image.from_pretrained(
+pipe = AutoPipelineForImage2Image.from_pretrained(
     "stabilityai/sdxl-turbo",
     torch_dtype=torch_dtype,
     variant="fp16" if torch_dtype == torch.float16 else "fp32",
 )
 
-i2i_pipe.to(device=torch_device, dtype=torch_dtype).to(device)
-i2i_pipe.set_progress_bar_config(disable=True)
+config = CompilationConfig.Default()
+config.enable_xformers = True
+config.enable_triton = True
+config.enable_cuda_graph = True
+pipe = compile(pipe, config=config)
+
+pipe.to(device=torch_device, dtype=torch_dtype).to(device)
+pipe.set_progress_bar_config(disable=True)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--input_port", type=int, default=5555, help="Input port")
@@ -64,7 +75,7 @@ try:
             generator = torch.manual_seed(settings["seed"])
             
         start_time = time.time()
-        results = i2i_pipe(
+        results = pipe(
             prompt=settings["prompt"],
             image=input_image / 255,
             generator=generator,

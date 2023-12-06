@@ -1,4 +1,12 @@
 data
+output
+
 service_account.json
 .*
+
 *.pyc
+*.log
+*.mp4
+*.mov
+*.aac
+*.whl
