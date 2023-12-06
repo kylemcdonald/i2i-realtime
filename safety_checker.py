@@ -1,8 +1,10 @@
 from openai import OpenAI
 import os
+from dotenv import load_dotenv
 
 class SafetyChecker:
     def __init__(self):
+        load_dotenv()
         self.client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
     def __call__(self, prompt):
