@@ -1,16 +1,16 @@
 import threading
 import uvicorn
 from fastapi import FastAPI
+import time
 
 from safety_checker import SafetyChecker
 from translate import Translate
 
-# todo: fix shutdown to be correct using https://github.com/encode/uvicorn/discussions/1103
 class SettingsSubscriber:
     def __init__(self, port):
         self.shutdown = False
         self.settings = {
-            "reseed": False,
+            "fixed_seed": True,
             "seed": 0,
             "num_inference_steps": 2,
             "guidance_scale": 0.0,
@@ -43,10 +43,10 @@ class SettingsSubscriber:
                 print("Updated prompt:", prompt)
                 return {"safety": "safe"}
 
-        @app.get("/reseed/{status}")
-        async def reseed(status: bool):
-            self.settings["reseed"] = status
-            print("Updated reseed status:", self.settings["reseed"])
+        @app.get("/fixed_seed/{status}")
+        async def fixed_seed(status: bool):
+            self.settings["fixed_seed"] = status
+            print("Updated fixed_seed status:", self.settings["fixed_seed"])
             return {"status": "updated"}
 
         @app.get("/seed/{value}")
@@ -81,7 +81,10 @@ class SettingsSubscriber:
 
         config = uvicorn.Config(app, host="localhost", port=port, log_level="info")
         self.server = uvicorn.Server(config=config)
-        self.server.run()
+        try:
+            self.server.run()
+        except KeyboardInterrupt:
+            pass
             
     def close(self):
         self.server.should_exit = True
@@ -90,8 +93,8 @@ class SettingsSubscriber:
 if __name__ == "__main__":
     sub = SettingsSubscriber(5556)
     try:
-        input("Press Enter to stop...\n")
+        while True:
+            time.sleep(1)
     except KeyboardInterrupt:
         pass
-    print(sub.settings)
     sub.close()

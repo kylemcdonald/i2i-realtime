@@ -24,7 +24,9 @@ try:
         with open(fn, 'rb') as f:
             frame = f.read()
         jpg_b64 = base64.b64encode(frame)
-        msg = b'{"index":' + str(i).encode('ascii') + b',"data":"' + jpg_b64 + b'"}'
+        timestamp = str(int(time.time() * 1000)).encode('ascii')
+        index = str(i).encode('ascii')
+        msg = b'{"timestamp":'+ timestamp +b',"index":' + index + b',"data":"' + jpg_b64 + b'"}'
         publisher.send(msg)
         print(fn, end='\r')
         time.sleep(1/args.fps)
