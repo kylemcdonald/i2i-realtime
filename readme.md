@@ -19,7 +19,6 @@ sudo apt install python3.10 python3.10-dev python3.10-venv libturbojpeg
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-pip install git+https://github.com/lilohuang/PyTurboJPEG.git
 wget -c "https://github.com/chengzeyi/stable-fast/releases/download/v0.0.13.post3/stable_fast-0.0.13.post3+torch210cu121-cp310-cp310-manylinux2014_x86_64.whl" .
 pip install stable_fast-0.0.13.post3+torch210cu121-cp310-cp310-manylinux2014_x86_64.whl
 python stream-images.py --input_folder data/frames --fps 15 --port 5555 &
