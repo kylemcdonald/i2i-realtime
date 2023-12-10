@@ -17,3 +17,4 @@ openai==1.3.7
 python-dotenv==1.0.0
 pyzmq==25.1.2
 git+https://github.com/lilohuang/PyTurboJPEG.git
+stable_fast @ https://github.com/chengzeyi/stable-fast/releases/download/v0.0.13.post3/stable_fast-0.0.13.post3+torch210cu121-cp310-cp310-manylinux2014_x86_64.whl
