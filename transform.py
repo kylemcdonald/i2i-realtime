@@ -49,7 +49,7 @@ args = parser.parse_args()
 
 context = zmq.Context()
 img_subscriber = context.socket(zmq.SUB)
-img_subscriber.connect(f"tcp://127.0.0.1:{args.input_port}")
+img_subscriber.bind(f"tcp://*:{args.input_port}")
 img_subscriber.setsockopt(zmq.SUBSCRIBE, b"")
 
 img_publisher = context.socket(zmq.PUB)

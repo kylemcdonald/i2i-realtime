@@ -13,7 +13,7 @@ args = parser.parse_args()
 
 context = zmq.Context()
 publisher = context.socket(zmq.PUB)
-publisher.bind(f'tcp://*:{args.port}')
+publisher.connect(f'tcp://localhost:{args.port}')
 
 try:
     file_list = os.listdir(args.input_folder)
