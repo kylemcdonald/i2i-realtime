@@ -14,7 +14,7 @@ args = parser.parse_args()
 
 context = zmq.Context()
 img_subscriber = context.socket(zmq.SUB)
-img_subscriber.connect(f"tcp://localhost:{args.port}")
+img_subscriber.connect(f"tcp://127.0.0.1:{args.port}")
 img_subscriber.setsockopt(zmq.SUBSCRIBE, b"")
 
 fullscreen = args.fullscreen

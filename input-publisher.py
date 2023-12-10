@@ -14,7 +14,7 @@ try:
         if msg.startswith('/'):
             command = msg.split()[0][1:]
             msg = msg[len(command)+2:]
-        url = f'http://localhost:{args.port}/{command}/{msg}'
+        url = f'http://127.0.0.1:{args.port}/{command}/{msg}'
         print(url)
         response = requests.get(url)
         print(response.json())
