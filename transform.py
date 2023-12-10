@@ -81,16 +81,20 @@ class Transform:
         if dropped_count > 0:
             print("Dropped messages:", dropped_count)
         
-        data = json.loads(msg)
-        index = data['index']
-        jpg_b64 = data['data']
-        jpg = base64.b64decode(jpg_b64)
-        img = jpeg.decode(jpg, pixel_format=TJPF_RGB)
+        using_json = True
+        try:
+            data = json.loads(msg)
+            jpg_b64 = data['data']
+            jpg_buffer = base64.b64decode(jpg_b64)
+        except Exception as e:
+            jpg_buffer = msg
+            using_json = False
+            
+        img = jpeg.decode(jpg_buffer, pixel_format=TJPF_RGB)
         
         h, w, _ = img.shape
         size = settings["size"]
         input_image = cv2.resize(img, (size, int(size * h / w)), interpolation=cv2.INTER_CUBIC)
-        # input_image = input_image[:, :, ::-1]  # RB swap
 
         diffusion_start_time = time.time()
         if settings["fixed_seed"]:
@@ -110,11 +114,14 @@ class Transform:
         output_image = results.images[0] * 255
     
         img_u8 = output_image.astype(np.uint8)
-        buffer = jpeg.encode(img_u8, pixel_format=TJPF_RGB)
-        jpg_b64 = base64.b64encode(buffer)
-        index = str(data['index']).encode('ascii')
-        timestamp = str(data['timestamp']).encode('ascii')
-        msg = b'{"timestamp":'+timestamp+b',"index":' + index + b',"data":"' + jpg_b64 + b'"}'
+        jpg_buffer = jpeg.encode(img_u8, pixel_format=TJPF_RGB)
+        if using_json:
+            index = str(data["index"]).encode('ascii')
+            timestamp = str(data["timestamp"]).encode('ascii')
+            jpg_b64 = base64.b64encode(jpg_buffer)
+            msg = b'{"timestamp":'+timestamp+b',"index":' + index + b',"data":"' + jpg_b64 + b'"}'
+        else:
+            msg = jpg_buffer
         img_publisher.send(msg)
         
         # time.sleep(0.5)
