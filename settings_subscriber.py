@@ -87,7 +87,8 @@ class SettingsSubscriber:
             pass
             
     def close(self):
-        self.server.should_exit = True
+        if hasattr(self, 'server'):
+            self.server.should_exit = True
         self.thread.join()
 
 if __name__ == "__main__":
