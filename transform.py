@@ -70,6 +70,8 @@ class BatchTransformer(ThreadedWorker):
         using_json = True
         
         images = []
+        jpg_duration = 0
+        zmq_duration = 0
         for msg in batch:
             try:
                 data = json.loads(msg)
@@ -79,14 +81,16 @@ class BatchTransformer(ThreadedWorker):
                 jpg_buffer = msg
                 using_json = False
                 
+            jpg_start = time.time()
             img = jpeg.decode(jpg_buffer, pixel_format=TJPF_RGB)
+            jpg_duration += time.time() - jpg_start
             
             # we should not take responsibility for resizing
-            h, w, _ = img.shape
-            size = settings["size"]
-            input_image = cv2.resize(img, (size, int(size * h / w)), interpolation=cv2.INTER_CUBIC) / 255
+            # h, w, _ = img.shape
+            # size = settings["size"]
+            # img = cv2.resize(img, (size, int(size * h / w)), interpolation=cv2.INTER_CUBIC)
             
-            images.append(input_image)
+            images.append(img / 255)
 
         diffusion_start_time = time.time()
         if settings["fixed_seed"] or self.generator is None:
@@ -105,7 +109,9 @@ class BatchTransformer(ThreadedWorker):
         
         for result in results.images:
             img_u8 = (result * 255).astype(np.uint8)
+            jpg_start = time.time()
             jpg_buffer = jpeg.encode(img_u8, pixel_format=TJPF_RGB)
+            jpg_duration += time.time() - jpg_start
             if using_json:
                 index = str(data["index"]).encode('ascii')
                 timestamp = str(data["timestamp"]).encode('ascii')
@@ -113,13 +119,16 @@ class BatchTransformer(ThreadedWorker):
                 msg = b'{"timestamp":'+timestamp+b',"index":' + index + b',"data":"' + jpg_b64 + b'"}'
             else:
                 msg = jpg_buffer
+                
+            zmq_start = time.time()
             img_publisher.send(msg)
+            zmq_duration += time.time() - zmq_start
         
         # time.sleep(0.5)
         
         duration = time.time() - start_time
-        overhead = duration - diffusion_duration 
-        print(f"Diffusion {int(diffusion_duration*1000)}ms + Overhead {int(overhead*1000)}ms = {int(duration*1000)}ms")
+        overhead = duration - diffusion_duration - jpg_duration
+        print(f"Diffusion {int(diffusion_duration*1000)}ms + ZMQ {int(zmq_duration*1000)}ms + JPG {int(jpg_duration*1000)}ms + Overhead {int(overhead*1000)}ms = {int(duration*1000)}ms")
         
 batching_subscriber = BatchingSubscriber(args.input_port, batch_size=4)
 batch_transformer = BatchTransformer()
