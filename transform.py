@@ -68,7 +68,11 @@ class Transform:
     def step(self):
         start_time = time.time()
         
-        msg = img_subscriber.recv()
+        try:
+            msg = img_subscriber.recv()
+        except zmq.error.ContextTerminated:
+            return
+        
         dropped_count = 0
         while True:
             try:
@@ -140,7 +144,7 @@ class Transform:
             
     def close(self):
         self.should_exit = True
-        self.thread.join()
+        self.thread.join(1) # won't join when waiting for recv()
             
     
 transform = Transform()
