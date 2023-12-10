@@ -16,3 +16,4 @@ google-cloud-translate==2.0.1
 openai==1.3.7
 python-dotenv==1.0.0
 pyzmq==25.1.2
+git+https://github.com/lilohuang/PyTurboJPEG.git
