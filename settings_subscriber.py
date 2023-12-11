@@ -79,7 +79,7 @@ class SettingsSubscriber:
             print("Updated size:", self.settings["size"])
             return {"status": "updated"}
 
-        config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="info")
+        config = uvicorn.Config(app, host="*", port=port, log_level="info")
         self.server = uvicorn.Server(config=config)
         try:
             self.server.run()
