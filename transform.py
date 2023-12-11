@@ -1,3 +1,4 @@
+import socket
 import zmq
 import msgpack
 import cv2
@@ -55,19 +56,21 @@ pipe.to(device="cuda", dtype=torch.float16).to("cuda")
 pipe.set_progress_bar_config(disable=True)
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--primary_hostname", type=str, default="0.0.0.0", help="Hostname of primary server")
 parser.add_argument("--input_port", type=int, default=5555, help="Input port")
-parser.add_argument("--output_port", type=int, default=5557, help="Output port")
+parser.add_argument("--output_port", type=int, default=5558, help="Output port")
 parser.add_argument("--settings_port", type=int, default=5556, help="Settings port")
 args = parser.parse_args()
 
 context = zmq.Context()
-img_publisher = context.socket(zmq.PUB)
-img_publisher.bind(f"tcp://0.0.0.0:{args.output_port}")
+img_publisher = context.socket(zmq.PUSH)
+img_publisher.connect(f"tcp://{args.primary_hostname}:{args.output_port}")
 
 settings = SettingsSubscriber(args.settings_port)
 
 jpeg = TurboJPEG()
 
+ip = socket.gethostbyname(socket.gethostname())
 
 class BatchTransformer(ThreadedWorker):
     def __init__(self):
@@ -114,7 +117,7 @@ class BatchTransformer(ThreadedWorker):
             jpg = jpeg.encode(img_u8, pixel_format=TJPF_RGB)
             jpg_duration += time.time() - jpg_start
 
-            msg = msgpack.packb([timestamp, index, jpg])
+            msg = msgpack.packb([timestamp, index, jpg, ip])
 
             zmq_start = time.time()
             img_publisher.send(msg)
@@ -128,7 +131,7 @@ class BatchTransformer(ThreadedWorker):
         )
 
 
-image_generator = BatchingSubscriber(args.input_port, batch_size=1)
+image_generator = BatchingSubscriber(args.primary_hostname, args.input_port, batch_size=1)
 batch_transformer = BatchTransformer()
 
 batch_transformer.feed(image_generator)

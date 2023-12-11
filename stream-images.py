@@ -17,8 +17,8 @@ parser.add_argument("--port", type=int, default=5555, help="Port number")
 args = parser.parse_args()
 
 context = zmq.Context()
-publisher = context.socket(zmq.PUB)
-publisher.bind(f"tcp://*:{args.port}")
+publisher = context.socket(zmq.PUSH)
+publisher.bind(f"tcp://0.0.0.0:{args.port}")
 
 start_time = time.time()
 frame_number = 0
