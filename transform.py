@@ -53,7 +53,7 @@ args = parser.parse_args()
 
 context = zmq.Context()
 img_publisher = context.socket(zmq.PUB)
-img_publisher.bind(f"tcp://*:{args.output_port}")
+img_publisher.bind(f"tcp://0.0.0.0:{args.output_port}")
 
 settings = SettingsSubscriber(args.settings_port)
 
@@ -80,11 +80,6 @@ class BatchTransformer(ThreadedWorker):
             jpg_start = time.time()
             img = jpeg.decode(jpg, pixel_format=TJPF_RGB)
             jpg_duration += time.time() - jpg_start
-            
-            # we should not take responsibility for resizing
-            # h, w, _ = img.shape
-            # size = settings["size"]
-            # img = cv2.resize(img, (size, int(size * h / w)), interpolation=cv2.INTER_CUBIC)
             
             images.append(img / 255)
 

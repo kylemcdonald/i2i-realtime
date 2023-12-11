@@ -15,8 +15,7 @@ class SettingsSubscriber:
             "num_inference_steps": 2,
             "guidance_scale": 0.0,
             "strength": 0.7,
-            "size": 1024,
-            "prompt": "A man playing piano."
+            "prompt": "A psychedelic landscape at sunset, full of colors."
         }
         self.thread = threading.Thread(target=self.run, args=(port,))
         self.thread.start()
@@ -35,7 +34,8 @@ class SettingsSubscriber:
             prompt = translate.translate_to_en(msg)
             if prompt != msg:
                 print("Translating from:", msg)
-            if safety_checker(prompt) == "unsafe":
+            override = "-f" in prompt
+            if not override and safety_checker(prompt) == "unsafe":
                 print("Ignoring unsafe prompt:", prompt)
                 return {"safety": "unsafe"}
             else:
@@ -73,13 +73,7 @@ class SettingsSubscriber:
             print("Updated strength:", self.settings["strength"])
             return {"status": "updated"}
 
-        @app.get("/size/{value}")
-        async def size(value: int):
-            self.settings["size"] = value
-            print("Updated size:", self.settings["size"])
-            return {"status": "updated"}
-
-        config = uvicorn.Config(app, host="*", port=port, log_level="info")
+        config = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="info")
         self.server = uvicorn.Server(config=config)
         try:
             self.server.run()

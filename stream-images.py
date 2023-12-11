@@ -21,7 +21,7 @@ try:
     file_list = os.listdir(args.input_folder)
     n_frames = len(file_list)
 
-    for i in cycle(range(1, 1 + n_frames)):
+    for i in cycle(range(n_frames)):
         fn = f"{args.input_folder}/{i:04d}.jpg"
         with open(fn, "rb") as f:
             frame = f.read()
