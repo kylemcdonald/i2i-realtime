@@ -32,5 +32,7 @@ class BatchingSubscriber(ThreadedProducer):
         return msg
 
     def cleanup(self):
+        print("batching_subscriber self.sub.close()")
         self.sub.close()
+        print("batching_subscriber self.context.term()")
         self.context.term()
