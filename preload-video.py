@@ -4,13 +4,15 @@ from utils.imutil import imread, imresize, imwrite
 import argparse
 import os
 
-parser = argparse.ArgumentParser(description='Preload video frames')
-parser.add_argument('--input', type=str, required=True, help='input video file path')
-parser.add_argument('--output', type=str, default='data/frames.npy', help='output file path for frames')
-parser.add_argument('--input_fps', type=int, default=30, help='input frames per second')
-parser.add_argument('--fps', type=int, default=15, help='output frames per second')
-parser.add_argument('--width', type=int, default=1024, help='output frame width')
-parser.add_argument('--jpg', action='store_true', help='save jpgs')
+parser = argparse.ArgumentParser(description="Preload video frames")
+parser.add_argument("--input", type=str, required=True, help="input video file path")
+parser.add_argument(
+    "--output", type=str, default="data/frames.npy", help="output file path for frames"
+)
+parser.add_argument("--input_fps", type=int, default=30, help="input frames per second")
+parser.add_argument("--fps", type=int, default=15, help="output frames per second")
+parser.add_argument("--width", type=int, default=1024, help="output frame width")
+parser.add_argument("--jpg", action="store_true", help="save jpgs")
 args = parser.parse_args()
 
 images = []
@@ -33,7 +35,7 @@ else:
             index += 1
         else:
             images.append(img)
-    
+
 if not args.jpg:
     images = np.asarray(images)
     np.save(args.output, images)

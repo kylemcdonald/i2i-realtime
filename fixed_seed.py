@@ -1,11 +1,23 @@
 import types
 import torch
 import PIL
-from diffusers.pipelines.stable_diffusion_xl.pipeline_stable_diffusion_xl_img2img import retrieve_latents
+from diffusers.pipelines.stable_diffusion_xl.pipeline_stable_diffusion_xl_img2img import (
+    retrieve_latents,
+)
 from diffusers.utils.torch_utils import randn_tensor
 
+
 def prepare_latents(
-    self, image, timestep, batch_size, num_images_per_prompt, dtype, device, generator=None, add_noise=True, fixed_noise=True
+    self,
+    image,
+    timestep,
+    batch_size,
+    num_images_per_prompt,
+    dtype,
+    device,
+    generator=None,
+    add_noise=True,
+    fixed_noise=True,
 ):
     if not isinstance(image, (torch.Tensor, PIL.Image.Image, list)):
         raise ValueError(
@@ -38,7 +50,9 @@ def prepare_latents(
 
         elif isinstance(generator, list):
             init_latents = [
-                retrieve_latents(self.vae.encode(image[i : i + 1]), generator=generator[i])
+                retrieve_latents(
+                    self.vae.encode(image[i : i + 1]), generator=generator[i]
+                )
                 for i in range(batch_size)
             ]
             init_latents = torch.cat(init_latents, dim=0)
@@ -63,19 +77,20 @@ def prepare_latents(
         init_latents = torch.cat([init_latents], dim=0)
 
     if add_noise:
-        if fixed_noise: # use same noise for all images
+        if fixed_noise:  # use same noise for all images
             shape = init_latents.shape[1:]
             noise = randn_tensor(shape, generator=generator, device=device, dtype=dtype)
             noise = noise.expand(batch_size, *noise.shape)
-        else: # use different noise for each image
+        else:  # use different noise for each image
             shape = init_latents.shape
-            noise = randn_tensor(shape, generator=generator, device=device, dtype=dtype)                
+            noise = randn_tensor(shape, generator=generator, device=device, dtype=dtype)
         # get latents
         init_latents = self.scheduler.add_noise(init_latents, noise, timestep)
 
     latents = init_latents
 
     return latents
+
 
 def fix_seed(pipe):
     pipe.prepare_latents = types.MethodType(prepare_latents, pipe)

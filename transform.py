@@ -8,11 +8,14 @@ import threading
 from turbojpeg import TurboJPEG, TJPF_RGB
 
 from sfast.compilers.stable_diffusion_pipeline_compiler import (
-    compile, CompilationConfig)
+    compile,
+    CompilationConfig,
+)
 
 from diffusers import AutoPipelineForImage2Image, AutoencoderTiny
 import torch
 import warnings
+
 warnings.filterwarnings("ignore", category=torch.jit.TracerWarning)
 
 from PIL import Image
@@ -22,15 +25,21 @@ from settings_subscriber import SettingsSubscriber
 from batching_subscriber import BatchingSubscriber
 from threaded_worker import ThreadedWorker
 
+xl = True
+if xl:
+    base_model = "stabilityai/sdxl-turbo"
+    vae_model = "madebyollin/taesdxl"
+else:
+    base_model = "stabilityai/sd-turbo"
+    vae_model = "madebyollin/taesd"
+
 pipe = AutoPipelineForImage2Image.from_pretrained(
-    "stabilityai/sdxl-turbo",
+    base_model,
     torch_dtype=torch.float16,
     variant="fp16",
 )
 
-pipe.vae = AutoencoderTiny.from_pretrained(
-    "madebyollin/taesdxl",
-    torch_dtype=torch.float16)
+pipe.vae = AutoencoderTiny.from_pretrained(vae_model, torch_dtype=torch.float16)
 
 pipe.set_progress_bar_config(disable=True)
 
@@ -59,14 +68,15 @@ settings = SettingsSubscriber(args.settings_port)
 
 jpeg = TurboJPEG()
 
+
 class BatchTransformer(ThreadedWorker):
     def __init__(self):
         super().__init__()
         self.generator = None
-            
+
     def process(self, batch):
         start_time = time.time()
-        
+
         images = []
         jpg_duration = 0
         zmq_duration = 0
@@ -76,19 +86,19 @@ class BatchTransformer(ThreadedWorker):
             timestamp, index, jpg = msgpack.unpackb(msg)
             timestamps.append(timestamp)
             indices.append(index)
-            
+
             jpg_start = time.time()
             img = jpeg.decode(jpg, pixel_format=TJPF_RGB)
             jpg_duration += time.time() - jpg_start
-            
+
             images.append(img / 255)
 
         diffusion_start_time = time.time()
         if settings["fixed_seed"] or self.generator is None:
             self.generator = torch.manual_seed(settings["seed"])
-            
+
         results = pipe(
-            prompt=[settings["prompt"]]*len(images),
+            prompt=[settings["prompt"]] * len(images),
             image=images,
             generator=self.generator,
             num_inference_steps=settings["num_inference_steps"],
@@ -97,26 +107,28 @@ class BatchTransformer(ThreadedWorker):
             output_type="np",
         )
         diffusion_duration = time.time() - diffusion_start_time
-        
+
         for timestamp, index, result in zip(timestamps, indices, results.images):
             img_u8 = (result * 255).astype(np.uint8)
             jpg_start = time.time()
             jpg = jpeg.encode(img_u8, pixel_format=TJPF_RGB)
             jpg_duration += time.time() - jpg_start
-            
-            msg = msgpack.packb([timestamp, index, jpg]) 
-                
+
+            msg = msgpack.packb([timestamp, index, jpg])
+
             zmq_start = time.time()
             img_publisher.send(msg)
             zmq_duration += time.time() - zmq_start
-        
-        # time.sleep(0.5)
-        
+
         duration = time.time() - start_time
         overhead = duration - diffusion_duration - jpg_duration
-        print(f"Diffusion {int(diffusion_duration*1000)}ms + ZMQ {int(zmq_duration*1000)}ms + JPG {int(jpg_duration*1000)}ms + Overhead {int(overhead*1000)}ms = {int(duration*1000)}ms")
-        
-image_generator = BatchingSubscriber(args.input_port, batch_size=4)
+        print(
+            f"Diffusion {int(diffusion_duration*1000)}ms + ZMQ {int(zmq_duration*1000)}ms + JPG {int(jpg_duration*1000)}ms + Overhead {int(overhead*1000)}ms = {int(duration*1000)}ms",
+            end="\r",
+        )
+
+
+image_generator = BatchingSubscriber(args.input_port, batch_size=1)
 batch_transformer = BatchTransformer()
 
 batch_transformer.feed(image_generator)

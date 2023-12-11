@@ -1,7 +1,8 @@
 import threading
 import queue
 
-class ThreadedWorker():
+
+class ThreadedWorker:
     def __init__(self):
         self.input_queue = queue.Queue()
         self.output_queue = queue.Queue()
@@ -11,21 +12,21 @@ class ThreadedWorker():
     def feed(self, feeder):
         self.input_queue = feeder.output_queue
         return self
-    
+
     def start(self):
         self.thread.start()
         return self
-        
+
     def process(self, value):
         return value
-        
+
     def run(self):
         while not self.should_exit:
             input = self.input_queue.get()
             if input is None:
                 break
             self.output_queue.put(self.process(input))
-            
+
     def close(self):
         self.should_exit = True
         self.input_queue.put(None)

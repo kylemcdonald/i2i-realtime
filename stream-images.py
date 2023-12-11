@@ -10,7 +10,9 @@ parser.add_argument(
     "--input_folder", default="data/frames", help="Path to the input folder"
 )
 parser.add_argument("--input_fps", type=int, default=15, help="Input frames per second")
-parser.add_argument("--output_fps", type=int, default=15, help="Output frames per second")
+parser.add_argument(
+    "--output_fps", type=int, default=15, help="Output frames per second"
+)
 parser.add_argument("--port", type=int, default=5555, help="Port number")
 args = parser.parse_args()
 
@@ -26,7 +28,7 @@ try:
     fns = list(sorted(file_list))
     n_frames = len(file_list)
     skip = args.input_fps // args.output_fps
-    for i,fn in cycle(enumerate(fns[::skip])):
+    for i, fn in cycle(enumerate(fns[::skip])):
         fn = os.path.join(args.input_folder, fn)
         with open(fn, "rb") as f:
             frame = f.read()
@@ -35,7 +37,7 @@ try:
         packed = msgpack.packb(msg)
         publisher.send(packed)
         print(fn, end="\r")
-        
+
         next_send_time = start_time + (frame_number + 1) / args.output_fps
         sleep_time = next_send_time - time.time()
         if sleep_time > 0:

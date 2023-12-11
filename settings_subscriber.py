@@ -6,6 +6,7 @@ import time
 from safety_checker import SafetyChecker
 from translate import Translate
 
+
 class SettingsSubscriber:
     def __init__(self, port):
         self.shutdown = False
@@ -15,11 +16,11 @@ class SettingsSubscriber:
             "num_inference_steps": 2,
             "guidance_scale": 0.0,
             "strength": 0.7,
-            "prompt": "A psychedelic landscape at sunset, full of colors."
+            "prompt": "A psychedelic landscape at sunset, full of colors.",
         }
         self.thread = threading.Thread(target=self.run, args=(port,))
         self.thread.start()
-        
+
     def __getitem__(self, key):
         return self.settings[key]
 
@@ -79,11 +80,12 @@ class SettingsSubscriber:
             self.server.run()
         except KeyboardInterrupt:
             pass
-            
+
     def close(self):
-        if hasattr(self, 'server'):
+        if hasattr(self, "server"):
             self.server.should_exit = True
         self.thread.join()
+
 
 if __name__ == "__main__":
     sub = SettingsSubscriber(5556)

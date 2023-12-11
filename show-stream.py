@@ -9,7 +9,9 @@ from turbojpeg import TurboJPEG, TJPF_RGB
 parser = argparse.ArgumentParser()
 parser.add_argument("--port", type=int, required=True, help="Port number")
 parser.add_argument("--fullscreen", action="store_true", help="Enable fullscreen")
-parser.add_argument("--resolution", type=int, default=1920, help="Image width for resizing")
+parser.add_argument(
+    "--resolution", type=int, default=1920, help="Image width for resizing"
+)
 args = parser.parse_args()
 
 jpeg = TurboJPEG()
@@ -35,7 +37,7 @@ try:
                 dropped_count += 1
             except zmq.Again:
                 break
-            
+
         if dropped_count > 0:
             print("Dropped messages:", dropped_count)
 
@@ -43,29 +45,42 @@ try:
         img = jpeg.decode(jpg, pixel_format=TJPF_RGB)
 
         if args.resolution:
-            h,w = img.shape[:2]
+            h, w = img.shape[:2]
             h_new = int(args.resolution * h / w)
             w_new = args.resolution
             img = cv2.resize(img, (w_new, h_new), interpolation=cv2.INTER_LANCZOS4)
 
         # write index to image using putText
-        
+
         cur_timestamp = int(time.time() * 1000)
         latency = f"latency {cur_timestamp - timestamp} ms"
-        cv2.putText(img, latency, (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2, cv2.LINE_AA)
+        cv2.putText(
+            img,
+            latency,
+            (10, 50),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (0, 255, 255),
+            2,
+            cv2.LINE_AA,
+        )
 
-        cv2.imshow(window_name, img[:,:,::-1])
+        cv2.imshow(window_name, img[:, :, ::-1])
 
         key = cv2.waitKey(1)
         if key == 27:
             break
         # toggle fullscreen when user presses 'f' key
-        elif key == ord('f'):
+        elif key == ord("f"):
             fullscreen = not fullscreen
             if fullscreen:
-                cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+                cv2.setWindowProperty(
+                    window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN
+                )
             else:
-                cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_KEEPRATIO)
+                cv2.setWindowProperty(
+                    window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_KEEPRATIO
+                )
 
 except Exception as e:
     print(e)
