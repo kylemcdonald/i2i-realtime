@@ -1,3 +1,9 @@
+import os
+import dotenv
+dotenv.load_dotenv()
+worker_id = os.environ["WORKER_ID"]
+print(f"Starting worker #{worker_id}")
+
 import socket
 import zmq
 import msgpack
@@ -70,8 +76,6 @@ settings = SettingsSubscriber(args.settings_port)
 
 jpeg = TurboJPEG()
 
-ip = socket.gethostbyname(socket.gethostname())
-
 class BatchTransformer(ThreadedWorker):
     def __init__(self):
         super().__init__()
@@ -117,7 +121,7 @@ class BatchTransformer(ThreadedWorker):
             jpg = jpeg.encode(img_u8, pixel_format=TJPF_RGB)
             jpg_duration += time.time() - jpg_start
 
-            msg = msgpack.packb([timestamp, index, jpg, ip])
+            msg = msgpack.packb([timestamp, index, jpg, worker_id])
 
             zmq_start = time.time()
             img_publisher.send(msg)
