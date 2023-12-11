@@ -1,15 +1,12 @@
 # Realtime i2i for Rhizomatiks
 
-Images are sent and received in the following format:
+Images are sent and received as a msgpack-encoded list: [timestamp, index, jpg].
 
-```json
-{
-    "index": <Integer>,
-    "data": <String>
-}
-``````
+* timestamp (int) is the time in milliseconds since Unix epoch. Useful for estimating overall latency.
+* index (int) is the frame index.
+* jpg (byte buffer) is a libturbo-jpeg encoded JPG of the image.
 
-Where `index` is the frame index and `data` is a base 64-encoded byte string.
+## Setup
 
 Example setup:
 

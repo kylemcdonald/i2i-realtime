@@ -1,6 +1,5 @@
 import zmq
-import json
-import base64
+import msgpack
 import cv2
 import numpy as np
 import argparse
@@ -67,22 +66,19 @@ class BatchTransformer(ThreadedWorker):
             
     def process(self, batch):
         start_time = time.time()
-        using_json = True
         
         images = []
         jpg_duration = 0
         zmq_duration = 0
+        timestamps = []
+        indices = []
         for msg in batch:
-            try:
-                data = json.loads(msg)
-                jpg_b64 = data['data']
-                jpg_buffer = base64.b64decode(jpg_b64)
-            except Exception as e:
-                jpg_buffer = msg
-                using_json = False
-                
+            timestamp, index, jpg = msgpack.unpackb(msg)
+            timestamps.append(timestamp)
+            indices.append(index)
+            
             jpg_start = time.time()
-            img = jpeg.decode(jpg_buffer, pixel_format=TJPF_RGB)
+            img = jpeg.decode(jpg, pixel_format=TJPF_RGB)
             jpg_duration += time.time() - jpg_start
             
             # we should not take responsibility for resizing
@@ -107,18 +103,13 @@ class BatchTransformer(ThreadedWorker):
         )
         diffusion_duration = time.time() - diffusion_start_time
         
-        for result in results.images:
+        for timestamp, index, result in zip(timestamps, indices, results.images):
             img_u8 = (result * 255).astype(np.uint8)
             jpg_start = time.time()
-            jpg_buffer = jpeg.encode(img_u8, pixel_format=TJPF_RGB)
+            jpg = jpeg.encode(img_u8, pixel_format=TJPF_RGB)
             jpg_duration += time.time() - jpg_start
-            if using_json:
-                index = str(data["index"]).encode('ascii')
-                timestamp = str(data["timestamp"]).encode('ascii')
-                jpg_b64 = base64.b64encode(jpg_buffer)
-                msg = b'{"timestamp":'+timestamp+b',"index":' + index + b',"data":"' + jpg_b64 + b'"}'
-            else:
-                msg = jpg_buffer
+            
+            msg = msgpack.packb([timestamp, index, jpg]) 
                 
             zmq_start = time.time()
             img_publisher.send(msg)

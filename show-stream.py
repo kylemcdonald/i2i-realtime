@@ -1,16 +1,18 @@
 import zmq
-import json
-import base64
 import cv2
 import numpy as np
 import argparse
 import time
+import msgpack
+from turbojpeg import TurboJPEG, TJPF_RGB
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--port", type=int, help="Port number")
+parser.add_argument("--port", type=int, required=True, help="Port number")
 parser.add_argument("--fullscreen", action="store_true", help="Enable fullscreen")
-parser.add_argument("--resolution", type=int, help="Image width for resizing")
+parser.add_argument("--resolution", type=int, default=1920, help="Image width for resizing")
 args = parser.parse_args()
+
+jpeg = TurboJPEG()
 
 context = zmq.Context()
 img_subscriber = context.socket(zmq.SUB)
@@ -37,11 +39,8 @@ try:
         if dropped_count > 0:
             print("Dropped messages:", dropped_count)
 
-        data = json.loads(msg)
-        index = data['index']
-        jpg_b64 = data['data']
-        jpg = base64.b64decode(jpg_b64)
-        img = cv2.imdecode(np.frombuffer(jpg, np.uint8), cv2.IMREAD_UNCHANGED)
+        timestamp, index, jpg = msgpack.unpackb(msg)
+        img = jpeg.decode(jpg, pixel_format=TJPF_RGB)
 
         if args.resolution:
             h,w = img.shape[:2]
@@ -51,13 +50,11 @@ try:
 
         # write index to image using putText
         
-        if 'timestamp' in data:
-            msg_timestamp = data["timestamp"]
-            cur_timestamp = int(time.time() * 1000)
-            latency = f"latency {cur_timestamp - msg_timestamp} ms"
-            cv2.putText(img, latency, (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2, cv2.LINE_AA)
+        cur_timestamp = int(time.time() * 1000)
+        latency = f"latency {cur_timestamp - timestamp} ms"
+        cv2.putText(img, latency, (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2, cv2.LINE_AA)
 
-        cv2.imshow(window_name, img)
+        cv2.imshow(window_name, img[:,:,::-1])
 
         key = cv2.waitKey(1)
         if key == 27:

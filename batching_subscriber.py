@@ -6,7 +6,7 @@ class BatchingSubscriber(ThreadedProducer):
         super().__init__()
         self.context = zmq.Context()
         self.sub = self.context.socket(zmq.SUB)
-        self.sub.bind(f"tcp://*:{port}")
+        self.sub.connect(f"tcp://localhost:{port}")
         self.sub.setsockopt(zmq.SUBSCRIBE, b"")
         self.batch_size = batch_size
         self.batch = []
