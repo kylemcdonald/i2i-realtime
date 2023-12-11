@@ -116,13 +116,13 @@ class BatchTransformer(ThreadedWorker):
         overhead = duration - diffusion_duration - jpg_duration
         print(f"Diffusion {int(diffusion_duration*1000)}ms + ZMQ {int(zmq_duration*1000)}ms + JPG {int(jpg_duration*1000)}ms + Overhead {int(overhead*1000)}ms = {int(duration*1000)}ms")
         
-batching_subscriber = BatchingSubscriber(args.input_port, batch_size=4)
+image_generator = BatchingSubscriber(args.input_port, batch_size=4)
 batch_transformer = BatchTransformer()
 
-batch_transformer.feed(batching_subscriber)
+batch_transformer.feed(image_generator)
 
 batch_transformer.start()
-batching_subscriber.start()
+image_generator.start()
 
 try:
     while True:
@@ -132,8 +132,8 @@ except KeyboardInterrupt:
 finally:
     print("closing batch_transformer")
     batch_transformer.close()
-    print("closing batching_subscriber")
-    batching_subscriber.close()
+    print("closing image_generator")
+    image_generator.close()
     print("closing settings")
     settings.close()
     print("closing img_publisher")
