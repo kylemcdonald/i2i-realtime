@@ -63,6 +63,7 @@ pipe.set_progress_bar_config(disable=True)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--primary_hostname", type=str, default="0.0.0.0", help="Hostname of primary server")
+parser.add_argument("--batch_size", type=int, default=1, help="Batch size")
 parser.add_argument("--input_port", type=int, default=5555, help="Input port")
 parser.add_argument("--output_port", type=int, default=5558, help="Output port")
 parser.add_argument("--settings_port", type=int, default=5556, help="Settings port")
@@ -135,7 +136,7 @@ class BatchTransformer(ThreadedWorker):
         )
 
 
-image_generator = BatchingSubscriber(args.primary_hostname, args.input_port, batch_size=1)
+image_generator = BatchingSubscriber(args.primary_hostname, args.input_port, batch_size=args.batch_size)
 batch_transformer = BatchTransformer()
 
 batch_transformer.feed(image_generator)
