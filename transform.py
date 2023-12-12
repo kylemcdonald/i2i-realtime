@@ -123,21 +123,24 @@ try:
             images.append(img / 255)
 
         diffusion_start_time = time.time()
-        if settings["fixed_seed"] or generator is None:
-            generator = torch.manual_seed(settings["seed"])
 
-        results = pipe(
-            prompt=[settings["prompt"]] * len(images),
-            image=images,
-            generator=generator,
-            num_inference_steps=settings["num_inference_steps"],
-            guidance_scale=settings["guidance_scale"],
-            strength=settings["strength"],
-            output_type="np",
-        )
+        if settings["passthrough"]:
+            results = images
+        else:
+            if settings["fixed_seed"] or generator is None:
+                generator = torch.manual_seed(settings["seed"])
+            results = pipe(
+                prompt=[settings["prompt"]] * len(images),
+                image=images,
+                generator=generator,
+                num_inference_steps=settings["num_inference_steps"],
+                guidance_scale=settings["guidance_scale"],
+                strength=settings["strength"],
+                output_type="np",
+            ).images
         diffusion_duration = time.time() - diffusion_start_time
 
-        for index, result in zip(indices, results.images):
+        for index, result in zip(indices, results):
             img_u8 = (result * 255).astype(np.uint8)
             jpg = jpeg.encode(img_u8, pixel_format=TJPF_RGB)
 
@@ -156,10 +159,10 @@ try:
 
         duration = time.time() - start_time
         overhead = duration - diffusion_duration - zmq_duration
-        print("\033[K", end="", flush=True)  # clear entire line
+        # print("\033[K", end="", flush=True)  # clear entire line
         print(
             f"Diffusion {int(diffusion_duration*1000)}ms + ZMQ {int(zmq_duration*1000)}ms Overhead {int(overhead*1000)}ms = {int(duration*1000)}ms",
-            end="\r",
+            # end="\r",
         )
 except KeyboardInterrupt:
     pass

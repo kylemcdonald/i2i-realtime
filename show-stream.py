@@ -7,11 +7,7 @@ import msgpack
 from turbojpeg import TurboJPEG, TJPF_RGB
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--port", type=int, required=True, help="Port number")
-parser.add_argument("--fullscreen", action="store_true", help="Enable fullscreen")
-parser.add_argument(
-    "--resolution", type=int, default=1920, help="Image width for resizing"
-)
+parser.add_argument("--port", type=int, default=5555, help="Port number")
 args = parser.parse_args()
 
 jpeg = TurboJPEG()

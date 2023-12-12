@@ -8,12 +8,16 @@ from settings_subscriber import SettingsSubscriber
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "--input_folder", default="data/frames", help="Path to the input folder"
+    "--input_folder",
+    default="data/m8_Perspective_BG_20231130",
+    help="Path to the input folder",
 )
-parser.add_argument("--input_fps", type=int, default=15, help="Input frames per second")
+parser.add_argument("--input_fps", type=int, default=30, help="Input frames per second")
 parser.add_argument(
-    "--output_fps", type=int, default=15, help="Output frames per second"
+    "--output_fps", type=int, default=10, help="Output frames per second"
 )
+parser.add_argument("--start_time", type=int, default=0, help="Start time in seconds")
+parser.add_argument("--duration", type=int, default=None, help="Duration in seconds")
 parser.add_argument("--port", type=int, default=5555, help="Port number")
 parser.add_argument("--settings_port", type=int, default=5556, help="Settings port")
 args = parser.parse_args()
@@ -25,15 +29,18 @@ publisher = context.socket(zmq.PUSH)
 publisher.bind(f"tcp://0.0.0.0:{args.port}")
 
 start_time = time.time()
-input_frame_number = 0
+start_frame_number = args.start_time * args.input_fps
+input_frame_number = start_frame_number
 output_frame_number = 0
 
 try:
     file_list = os.listdir(args.input_folder)
     fns = list(sorted(file_list))
-    n_frames = len(file_list)
+    end_frame_number = len(file_list)
+    if args.duration:
+        end_frame_number = start_frame_number + args.duration * args.input_fps
     skip = args.input_fps // args.output_fps
-    
+
     while True:
         frames = []
         indices = []
@@ -47,9 +54,9 @@ try:
             indices.append(input_frame_number)
             output_frame_number += 1
             input_frame_number += skip
-            if input_frame_number >= n_frames:
-                input_frame_number = 0
-        
+            if input_frame_number >= end_frame_number:
+                input_frame_number = start_frame_number
+
         timestamp = int(time.time() * 1000)
         packed = msgpack.packb(
             {

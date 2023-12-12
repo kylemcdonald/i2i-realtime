@@ -14,7 +14,9 @@ class SettingsSubscriber:
             "fixed_seed": True,
             "batch_size": 1,
             "seed": 0,
-            "local_mode": False,
+            "width": 1024,
+            "local_mode": True,
+            "passthrough": True,
             "num_inference_steps": 2,
             "guidance_scale": 0.0,
             "strength": 0.7,
@@ -51,6 +53,12 @@ class SettingsSubscriber:
         async def local_mode(status: bool):
             self.settings["local_mode"] = status
             print("Updated local_mode status:", self.settings["local_mode"])
+            return {"status": "updated"}
+        
+        @app.get("/passthrough/{status}")
+        async def passthrough(status: bool):
+            self.settings["passthrough"] = status
+            print("Updated passthrough status:", self.settings["passthrough"])
             return {"status": "updated"}
         
         @app.get("/fixed_seed/{status}")
