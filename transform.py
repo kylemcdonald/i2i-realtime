@@ -95,10 +95,25 @@ class Receiver(ThreadedProducer):
         self.batch_subscriber.connect(f"tcp://{hostname}:{port}")
 
     def produce(self):
-        msg = self.batch_subscriber.recv()
-        unpacked = msgpack.unpackb(msg)
-        print("received", unpacked["timestamp"], unpacked["indices"])
-        return unpacked
+        while not self.should_exit:
+            msg = self.batch_subscriber.recv()
+            unpacked = msgpack.unpackb(msg)
+            latency = (time.time() * 1000) - unpacked["timestamp"]
+            if latency > 100:
+                print(f"{int(latency)}ms dropping old frames")
+                continue
+            print(f"{int(latency)}ms received {unpacked['indices']}")            
+            settings = unpacked["settings"]
+            images = []
+            for frame in unpacked["frames"]:
+                if isinstance(frame, str):
+                    img = load_image(frame, settings["resolution"])
+                else:
+                    img = jpeg.decode(frame, pixel_format=TJPF_RGB)
+                    img = imresize(img, max_side=settings["resolution"])
+                images.append(img / 255)
+            unpacked["frames"] = images
+            return unpacked
 
     def cleanup(self):
         self.batch_subscriber.close()
@@ -115,17 +130,8 @@ class Processor(ThreadedWorker):
 
         timestamp = unpacked["timestamp"]
         indices = unpacked["indices"]
-        frames = unpacked["frames"]
+        images = unpacked["frames"]
         settings = unpacked["settings"]
-
-        images = []
-        for frame in frames:
-            if isinstance(frame, str):
-                img = load_image(frame, settings["resolution"])
-            else:
-                img = jpeg.decode(frame, pixel_format=TJPF_RGB)
-                img = imresize(img, max_side=settings["resolution"])
-            images.append(img / 255)
 
         diffusion_start_time = time.time()
 
@@ -182,6 +188,8 @@ except KeyboardInterrupt:
 
 print("closing receiver")
 receiver.close()
+print("closing processor")
+processor.close()
 print("closing img_publisher")
 img_publisher.close()
 print("term context")
