@@ -73,6 +73,17 @@ batch_subscriber.connect(f"tcp://{args.primary_hostname}:{args.input_port}")
 img_publisher = context.socket(zmq.PUSH)
 img_publisher.connect(f"tcp://{args.primary_hostname}:{args.output_port}")
 
+image_cache = {}
+
+
+def load_image(path):
+    if path not in image_cache:
+        with open(path, "rb") as f:
+            frame = f.read()
+        img = jpeg.decode(frame, pixel_format=TJPF_RGB)
+        image_cache[path] = img
+    return image_cache[path]
+
 
 jpeg = TurboJPEG()
 
@@ -82,7 +93,11 @@ try:
     while True:
         start_time = time.time()
 
+        zmq_duration = 0
+        zmq_start = time.time()
         msg = batch_subscriber.recv()
+        zmq_duration += time.time() - zmq_start
+
         ignored_count = 0
         while True:
             try:
@@ -93,16 +108,18 @@ try:
         if ignored_count > 0:
             print("Ignored messages:", ignored_count)
 
-
         unpacked = msgpack.unpackb(msg)
         timestamp = unpacked["timestamp"]
         indices = unpacked["indices"]
         frames = unpacked["frames"]
         settings = unpacked["settings"]
-            
+
         images = []
         for frame in frames:
-            img = jpeg.decode(frame, pixel_format=TJPF_RGB)
+            if isinstance(frame, str):
+                img = load_image(frame)
+            else:
+                img = jpeg.decode(frame, pixel_format=TJPF_RGB)
             images.append(img / 255)
 
         diffusion_start_time = time.time()
@@ -133,13 +150,15 @@ try:
                 }
             )
 
+            zmq_start = time.time()
             img_publisher.send(msg)
+            zmq_duration += time.time() - zmq_start
 
         duration = time.time() - start_time
-        overhead = duration - diffusion_duration
+        overhead = duration - diffusion_duration - zmq_duration
         print("\033[K", end="", flush=True)  # clear entire line
         print(
-            f"Diffusion {int(diffusion_duration*1000)}ms + Overhead {int(overhead*1000)}ms = {int(duration*1000)}ms",
+            f"Diffusion {int(diffusion_duration*1000)}ms + ZMQ {int(zmq_duration*1000)}ms Overhead {int(overhead*1000)}ms = {int(duration*1000)}ms",
             end="\r",
         )
 except KeyboardInterrupt:

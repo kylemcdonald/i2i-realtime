@@ -1,6 +1,6 @@
 # Realtime i2i for Rhizomatiks
 
-Images are sent and received as a msgpack-encoded list: [timestamp, index, jpg].
+The final output is a msgpack-encoded list on port 5557 in the format [timestamp, index, jpg].
 
 * timestamp (int) is the time in milliseconds since Unix epoch. Useful for estimating overall latency.
 * index (int) is the frame index.
@@ -31,15 +31,25 @@ By default, loads from ../frames at 15 fps to port 5555.
 
 Does not encode or decode image files, just sends the image file buffer.
 
-## `show-stream.py`
-
-Displays the JPEG files streaming to the specified port.
+Also runs the settings server on port 5556, and batches the requests before they are sent to workers.
 
 ## `transform.py`
 
-Transforms the images received on port 5555 and returns them on port 5557.
+Transforms the images received on port 5555 and returns them on port 5558.
 
-Receives prompts and other commands as strings on port 5556.
+Images are received in batches, as msgpack-packed dicts with the keys: timestamp, index, frames, indices.
+
+frames and indices are lists. frames may contain jpg images, or paths to jpg images.
+
+This script may run on multiple PCs, if you add the `--primary_hostname` parameter so it can connect to the primary server that is running `stream-images.py`.
+
+## `collector.py`
+
+Receives all the results on port 5558 and publishes them on port 5557.
+
+## `show-stream.py`
+
+Displays the JPEG output streaming to port 5557.
 
 ## `input-publisher.py`
 

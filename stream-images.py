@@ -39,8 +39,11 @@ try:
         indices = []
         for i in range(settings["batch_size"]):
             fn = os.path.join(args.input_folder, fns[input_frame_number])
-            with open(fn, "rb") as f:
-                frames.append(f.read())
+            if settings["local_mode"]:
+                frames.append(fn)
+            else:
+                with open(fn, "rb") as f:
+                    frames.append(f.read())
             indices.append(input_frame_number)
             output_frame_number += 1
             input_frame_number += skip
