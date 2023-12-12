@@ -14,7 +14,10 @@ class SafetyChecker:
             ""
         )
         response = self.client.chat.completions.create(
-            model="gpt-4-1106-preview", messages=[{"role": "user", "content": content}]
+            model="gpt-4-1106-preview",
+            messages=[{"role": "user", "content": content}],
+            temperature=0.0,
+            max_tokens=3,
         )
         safe = response.choices[0].message.content == "safe"
         return "safe" if safe else "unsafe"
