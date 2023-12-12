@@ -1,6 +1,7 @@
 import threading
 import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 import time
 
 from safety_checker import SafetyChecker
@@ -12,10 +13,11 @@ class SettingsSubscriber:
         self.shutdown = False
         self.settings = {
             "fixed_seed": True,
-            "batch_size": 1,
+            "batch_size": 4,
+            "fps": 30,
             "seed": 0,
             "resolution": 1024,
-            "local_mode": True,
+            "local_mode": False,
             "passthrough": True,
             "num_inference_steps": 2,
             "guidance_scale": 0.0,
@@ -33,6 +35,14 @@ class SettingsSubscriber:
         translate = Translate()
 
         app = FastAPI()
+
+        # Add CORS middleware
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
         @app.get("/prompt/{msg}")
         async def prompt(msg: str):
@@ -54,31 +64,37 @@ class SettingsSubscriber:
             self.settings["local_mode"] = status
             print("Updated local_mode status:", self.settings["local_mode"])
             return {"status": "updated"}
-        
+
         @app.get("/passthrough/{status}")
         async def passthrough(status: bool):
             self.settings["passthrough"] = status
             print("Updated passthrough status:", self.settings["passthrough"])
             return {"status": "updated"}
-        
+
         @app.get("/fixed_seed/{status}")
         async def fixed_seed(status: bool):
             self.settings["fixed_seed"] = status
             print("Updated fixed_seed status:", self.settings["fixed_seed"])
             return {"status": "updated"}
-        
+
         @app.get("/resolution/{value}")
         async def resolution(value: int):
             self.settings["resolution"] = value
             print("Updated resolution:", self.settings["resolution"])
             return {"status": "updated"}
-        
+
+        @app.get("/fps/{value}")
+        async def fps(value: int):
+            self.settings["fps"] = value
+            print("Updated fps:", self.settings["fps"])
+            return {"status": "updated"}
+
         @app.get("/batch_size/{value}")
         async def batch_size(value: int):
             self.settings["batch_size"] = value
             print("Updated batch_size:", self.settings["batch_size"])
             return {"status": "updated"}
-        
+
         @app.get("/seed/{value}")
         async def seed(value: int):
             self.settings["seed"] = value
