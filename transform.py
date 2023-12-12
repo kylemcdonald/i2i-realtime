@@ -38,6 +38,7 @@ from PIL import Image
 
 from fixed_seed import fix_seed
 from threaded_worker import ThreadedWorker
+from threaded_producer import ThreadedProducer
 
 xl = True
 if xl:
@@ -52,11 +53,8 @@ pipe = AutoPipelineForImage2Image.from_pretrained(
     torch_dtype=torch.float16,
     variant="fp16",
 )
-
 pipe.vae = AutoencoderTiny.from_pretrained(vae_model, torch_dtype=torch.float16)
-
 pipe.set_progress_bar_config(disable=True)
-
 fix_seed(pipe)
 
 config = CompilationConfig.Default()
@@ -69,9 +67,6 @@ pipe.to(device="cuda", dtype=torch.float16).to("cuda")
 pipe.set_progress_bar_config(disable=True)
 
 context = zmq.Context()
-batch_subscriber = context.socket(zmq.PULL)
-batch_subscriber.connect(f"tcp://{args.primary_hostname}:{args.input_port}")
-
 img_publisher = context.socket(zmq.PUSH)
 img_publisher.connect(f"tcp://{args.primary_hostname}:{args.output_port}")
 
@@ -80,43 +75,44 @@ def load_image(path, max_side):
     with open(path, "rb") as f:
         frame = f.read()
     img = jpeg.decode(frame, pixel_format=TJPF_RGB)
-    
+
     # slower but higher quality
     # img = imresize(img, max_side=max_side)
-    
+
     # faster
     width = max_side
-    h,w = img.shape[:2]
+    h, w = img.shape[:2]
     height = int(width * h / w)
     img = cv2.resize(img, (width, height), interpolation=cv2.INTER_AREA)
-    
+
     return img
+
+
+class Receiver(ThreadedProducer):
+    def __init__(self, hostname, port):
+        super().__init__()
+        self.batch_subscriber = context.socket(zmq.PULL)
+        self.batch_subscriber.connect(f"tcp://{hostname}:{port}")
+
+    def produce(self):
+        msg = self.batch_subscriber.recv()
+        unpacked = msgpack.unpackb(msg)
+        print("received", unpacked["timestamp"], unpacked["indices"])
+        return unpacked
+
+    def cleanup(self):
+        self.batch_subscriber.close()
 
 
 jpeg = TurboJPEG()
 
 generator = None
 
-try:
-    while True:
+
+class Processor(ThreadedWorker):
+    def process(self, unpacked):
         start_time = time.time()
 
-        zmq_duration = 0
-        zmq_start = time.time()
-        msg = batch_subscriber.recv()
-        zmq_duration += time.time() - zmq_start
-
-        # ignored_count = 0
-        # while True:
-        #     try:
-        #         msg = batch_subscriber.recv(flags=zmq.NOBLOCK)
-        #         ignored_count += 1
-        #     except zmq.Again:
-        #         break
-        # if ignored_count > 0:
-        #     print("Ignored messages:", ignored_count)
-
-        unpacked = msgpack.unpackb(msg)
         timestamp = unpacked["timestamp"]
         indices = unpacked["indices"]
         frames = unpacked["frames"]
@@ -162,23 +158,31 @@ try:
                 }
             )
 
-            zmq_start = time.time()
             img_publisher.send(msg)
-            zmq_duration += time.time() - zmq_start
 
         duration = time.time() - start_time
-        overhead = duration - diffusion_duration - zmq_duration
-        # print("\033[K", end="", flush=True)  # clear entire line
+        overhead = duration - diffusion_duration
+
         print(
-            f"Diffusion {int(diffusion_duration*1000)}ms + ZMQ {int(zmq_duration*1000)}ms Overhead {int(overhead*1000)}ms = {int(duration*1000)}ms",
-            # end="\r",
+            f"Diffusion {int(diffusion_duration*1000)}ms + Overhead {int(overhead*1000)}ms = {int(duration*1000)}ms",
         )
+
+
+receiver = Receiver(args.primary_hostname, args.input_port)
+processor = Processor().feed(receiver)
+
+processor.start()
+receiver.start()
+
+try:
+    while True:
+        time.sleep(1)
 except KeyboardInterrupt:
     pass
-finally:
-    print("closing batch_subscriber")
-    batch_subscriber.close()
-    print("closing img_publisher")
-    img_publisher.close()
-    print("term context")
-    context.term()
+
+print("closing receiver")
+receiver.close()
+print("closing img_publisher")
+img_publisher.close()
+print("term context")
+context.term()
