@@ -18,11 +18,11 @@ class SettingsSubscriber:
             "seed": 0,
             "resolution": 1024,
             "local_mode": False,
-            "passthrough": True,
+            "passthrough": False,
             "num_inference_steps": 2,
             "guidance_scale": 0.0,
             "strength": 0.7,
-            "prompt": "A psychedelic landscape at sunset, full of colors.",
+            "prompt": "Generative art.",
         }
         self.thread = threading.Thread(target=self.run, args=(port,))
         self.thread.start()

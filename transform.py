@@ -38,7 +38,6 @@ from PIL import Image
 
 from fixed_seed import fix_seed
 from threaded_worker import ThreadedWorker
-from threaded_producer import ThreadedProducer
 
 xl = True
 if xl:
@@ -66,66 +65,63 @@ pipe = compile(pipe, config=config)
 pipe.to(device="cuda", dtype=torch.float16).to("cuda")
 pipe.set_progress_bar_config(disable=True)
 
-context = zmq.Context()
-img_publisher = context.socket(zmq.PUSH)
-img_publisher.connect(f"tcp://{args.primary_hostname}:{args.output_port}")
 
-
-def load_image(path, max_side):
-    with open(path, "rb") as f:
-        frame = f.read()
-    img = jpeg.decode(frame, pixel_format=TJPF_RGB)
-
-    # slower but higher quality
-    # img = imresize(img, max_side=max_side)
-
-    # faster
-    width = max_side
-    h, w = img.shape[:2]
-    height = int(width * h / w)
-    img = cv2.resize(img, (width, height), interpolation=cv2.INTER_AREA)
-
-    return img
-
-
-class Receiver(ThreadedProducer):
+class Receiver(ThreadedWorker):
     def __init__(self, hostname, port):
-        super().__init__()
-        self.batch_subscriber = context.socket(zmq.PULL)
-        self.batch_subscriber.connect(f"tcp://{hostname}:{port}")
+        super().__init__(has_input=False)
+        self.context = zmq.Context()
+        self.pull = self.context.socket(zmq.PULL)
+        self.pull.connect(f"tcp://{hostname}:{port}")
+        self.jpeg = TurboJPEG()
 
-    def produce(self):
+    def load_image(self, path, max_side):
+        with open(path, "rb") as f:
+            frame = f.read()
+        img = self.jpeg.decode(frame, pixel_format=TJPF_RGB)
+
+        # slower but higher quality
+        # img = imresize(img, max_side=max_side)
+
+        # faster
+        width = max_side
+        h, w = img.shape[:2]
+        height = int(width * h / w)
+        img = cv2.resize(img, (width, height), interpolation=cv2.INTER_AREA)
+
+        return img
+
+    def work(self):
         while not self.should_exit:
-            msg = self.batch_subscriber.recv()
+            msg = self.pull.recv()
             unpacked = msgpack.unpackb(msg)
             latency = (time.time() * 1000) - unpacked["timestamp"]
-            if latency > 100:
-                print(f"{int(latency)}ms dropping old frames")
+            if latency > 0.1:
+                # print(f"{int(latency)}ms dropping old frames")
                 continue
-            print(f"{int(latency)}ms received {unpacked['indices']}")            
+            # print(f"{int(latency)}ms received {unpacked['indices']}")
             settings = unpacked["settings"]
             images = []
             for frame in unpacked["frames"]:
                 if isinstance(frame, str):
-                    img = load_image(frame, settings["resolution"])
+                    img = self.load_image(frame, settings["resolution"])
                 else:
-                    img = jpeg.decode(frame, pixel_format=TJPF_RGB)
+                    img = self.jpeg.decode(frame, pixel_format=TJPF_RGB)
                     img = imresize(img, max_side=settings["resolution"])
                 images.append(img / 255)
             unpacked["frames"] = images
             return unpacked
 
     def cleanup(self):
-        self.batch_subscriber.close()
-
-
-jpeg = TurboJPEG()
-
-generator = None
+        self.pull.close()
+        self.context.term()
 
 
 class Processor(ThreadedWorker):
-    def process(self, unpacked):
+    def __init__(self):
+        super().__init__()
+        self.generator = None
+        
+    def work(self, unpacked):
         start_time = time.time()
 
         timestamp = unpacked["timestamp"]
@@ -133,27 +129,49 @@ class Processor(ThreadedWorker):
         images = unpacked["frames"]
         settings = unpacked["settings"]
 
-        diffusion_start_time = time.time()
-
         if settings["passthrough"]:
             results = images
         else:
-            if settings["fixed_seed"] or generator is None:
-                generator = torch.manual_seed(settings["seed"])
+            if settings["fixed_seed"] or self.generator is None:
+                self.generator = torch.manual_seed(settings["seed"])
             results = pipe(
                 prompt=[settings["prompt"]] * len(images),
                 image=images,
-                generator=generator,
+                generator=self.generator,
                 num_inference_steps=settings["num_inference_steps"],
                 guidance_scale=settings["guidance_scale"],
                 strength=settings["strength"],
                 output_type="np",
             ).images
-        diffusion_duration = time.time() - diffusion_start_time
+
+        unpacked["frames"] = results
+        unpacked["worker_id"] = worker_id
+
+        duration = time.time() - start_time
+        latency = time.time() - timestamp / 1000
+
+        print(f"Diffusion {int(duration*1000)}ms Latency {int(latency*1000)}ms")
+
+        return unpacked
+
+
+class Sender(ThreadedWorker):
+    def __init__(self, hostname, port):
+        super().__init__(has_output=False)
+        self.context = zmq.Context()
+        self.push = self.context.socket(zmq.PUSH)
+        self.push.connect(f"tcp://{hostname}:{port}")
+        self.jpeg = TurboJPEG()
+
+    def work(self, unpacked):
+        indices = unpacked["indices"]
+        results = unpacked["frames"]
+        timestamp = unpacked["timestamp"]
+        worker_id = unpacked["worker_id"]
 
         for index, result in zip(indices, results):
             img_u8 = (result * 255).astype(np.uint8)
-            jpg = jpeg.encode(img_u8, pixel_format=TJPF_RGB)
+            jpg = self.jpeg.encode(img_u8, pixel_format=TJPF_RGB)
 
             msg = msgpack.packb(
                 {
@@ -164,19 +182,20 @@ class Processor(ThreadedWorker):
                 }
             )
 
-            img_publisher.send(msg)
+            self.push.send(msg)
 
-        duration = time.time() - start_time
-        overhead = duration - diffusion_duration
-
-        print(
-            f"Diffusion {int(diffusion_duration*1000)}ms + Overhead {int(overhead*1000)}ms = {int(duration*1000)}ms",
-        )
+    def cleanup(self):
+        self.push.close()
+        self.context.close()
 
 
+# create from beginning to end
 receiver = Receiver(args.primary_hostname, args.input_port)
 processor = Processor().feed(receiver)
+sender = Sender(args.primary_hostname, args.output_port).feed(processor)
 
+# start from end to beginning
+sender.start()
 processor.start()
 receiver.start()
 
@@ -186,11 +205,13 @@ try:
 except KeyboardInterrupt:
     pass
 
-print("closing receiver")
-receiver.close()
+# close end to beginning
+print("closing sender")
+sender.close()
 print("closing processor")
 processor.close()
-print("closing img_publisher")
-img_publisher.close()
-print("term context")
-context.term()
+print("closing receiver")
+receiver.close()
+
+# print("term context")
+# context.term()
