@@ -11,6 +11,10 @@ class ThreadedWorker:
         self.should_exit = False
         self.thread = threading.Thread(target=self.run)
         self.name = "ThreadedWorker"
+        
+    def set_name(self, name):
+        self.name = name
+        return self
 
     def feed(self, feeder):
         print(self.name, "feeding with", feeder.name)
@@ -22,8 +26,17 @@ class ThreadedWorker:
         self.thread.start()
         return self
 
+    # called after the thread is started
+    def setup(self):
+        pass
+
+    # called before the thread is joined
+    def cleanup(self):
+        pass
+
     def run(self):
         print(self.name, "running")
+        self.setup()
         try:
             while not self.should_exit:
                 if hasattr(self, "input_queue"):
@@ -38,9 +51,9 @@ class ThreadedWorker:
                 if hasattr(self, "output_queue"):
                     # print(self.name, "adding to output_queue")
                     self.output_queue.put(result)
-                    
         except KeyboardInterrupt:
             print(self.name, "interrupted")
+        self.cleanup()
 
     def close(self):
         print(self.name, "closing")

@@ -189,18 +189,9 @@ class Sender(ThreadedWorker):
 
 
 # create from beginning to end
-receiver = Receiver(args.primary_hostname, args.input_port)
-processor = Processor()
-sender = Sender(args.primary_hostname, args.output_port)
-
-# name
-receiver.name = "receiver"
-processor.name = "processor"
-sender.name = "sender"
-
-# feed
-processor.feed(receiver)
-sender.feed(processor)
+receiver = Receiver(args.primary_hostname, args.input_port).set_name("receiver")
+processor = Processor().set_name("processor").feed(receiver)
+sender = Sender(args.primary_hostname, args.output_port).set_name("sender").feed(processor)
 
 # start from end to beginning
 sender.start()

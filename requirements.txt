@@ -20,3 +20,4 @@ git+https://github.com/lilohuang/PyTurboJPEG.git
 stable_fast @ https://github.com/chengzeyi/stable-fast/releases/download/v0.0.13.post3/stable_fast-0.0.13.post3+torch210cu121-cp310-cp310-manylinux2014_x86_64.whl
 msgpack==1.0.7
 ffmpeg-python==0.2.0
+python-osc==1.8.3

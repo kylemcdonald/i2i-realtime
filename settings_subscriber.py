@@ -19,7 +19,7 @@ class SettingsSubscriber:
             "resolution": 1024,
             "local_mode": False,
             "passthrough": False,
-            "num_inference_steps": 2,
+            "num_inference_steps": 3,
             "guidance_scale": 0.0,
             "strength": 0.7,
             "prompt": "Generative art.",
