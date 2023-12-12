@@ -25,7 +25,7 @@ class RemoveJitter:
         self.running = False
         self.should_exit = False
         self.delay = 33
-        self.jump = 1
+        self.jump = 0.1
 
     def start(self):
         if self.running:
@@ -49,16 +49,17 @@ class RemoveJitter:
             jpg = unpacked["jpg"]
 
             latency = int(time.time() * 1000) - timestamp
-            print("\033[K", end="", flush=True)  # clear entire line
+            # print("\033[K", end="", flush=True)  # clear entire line
             print(
-                f"outgoing: {index} #{worker_id} {latency}ms, {self.queue.qsize()}q {self.delay}ms",
-                end="\r",
+                f"outgoing: {index} #{worker_id} {latency}ms, {self.queue.qsize()}q {self.delay:.01f}ms"
             )
 
             packed = msgpack.packb([timestamp, index, jpg])
 
             publisher.send(packed)
-
+            
+            # doing this with smaller amounts for smaller offsets
+            # would help staibilize the framerate
             if self.queue.qsize() > self.max_size:
                 # need to speed up
                 self.delay -= self.jump
@@ -89,22 +90,33 @@ try:
         msg = receiver.recv()
         unpacked = msgpack.unpackb(msg)
         index = unpacked["index"]
+        msg_buffer[index] = unpacked  # start by adding to buffer
 
-        if next_index is None:
-            next_index = index
-        if index == 0:
-            next_index = 0
-        if index < next_index:
-            print("dropping", index)
-            continue
+        # drop all old messages to avoid memory leak
+        cur_time_ms = time.time() * 1000
+        for key in list(msg_buffer.keys()):
+            timestamp = unpacked["timestamp"]
+            latency = cur_time_ms - timestamp
+            if latency > 1000:
+                print(f"dropping {key} latency: {latency:.02f}")
+                del msg_buffer[key]
+                continue
 
-        timestamp = unpacked["timestamp"]
         index = unpacked["index"]
         worker_id = unpacked["worker_id"]
         jpg = unpacked["jpg"]
 
-        latency = int(time.time() * 1000) - timestamp
-        msg_buffer[index] = unpacked
+        if next_index is None:
+            # if next_index is None, let's start with this one
+            next_index = index
+
+        diff = abs(index - next_index)
+        if diff > 12:
+            # if we got a big jump, let's just jump to it
+            # this also works for resetting to 0
+            next_index = index
+
+        # msg_buffer[index] = unpacked
         # print(f"incoming: {index} #{worker_id} {latency}ms")
 
         # packed = msgpack.packb([timestamp, index, jpg])

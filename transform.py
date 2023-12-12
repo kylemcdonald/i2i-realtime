@@ -39,13 +39,8 @@ from PIL import Image
 from fixed_seed import fix_seed
 from threaded_worker import ThreadedWorker
 
-xl = True
-if xl:
-    base_model = "stabilityai/sdxl-turbo"
-    vae_model = "madebyollin/taesdxl"
-else:
-    base_model = "stabilityai/sd-turbo"
-    vae_model = "madebyollin/taesd"
+base_model = "stabilityai/sdxl-turbo"
+vae_model = "madebyollin/taesdxl"
 
 pipe = AutoPipelineForImage2Image.from_pretrained(
     base_model,
