@@ -4,6 +4,7 @@ from itertools import cycle
 import argparse
 import os
 import msgpack
+from settings_subscriber import SettingsSubscriber
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -14,7 +15,10 @@ parser.add_argument(
     "--output_fps", type=int, default=15, help="Output frames per second"
 )
 parser.add_argument("--port", type=int, default=5555, help="Port number")
+parser.add_argument("--settings_port", type=int, default=5556, help="Settings port")
 args = parser.parse_args()
+
+settings = SettingsSubscriber(args.settings_port)
 
 context = zmq.Context()
 publisher = context.socket(zmq.PUSH)
@@ -33,8 +37,14 @@ try:
         with open(fn, "rb") as f:
             frame = f.read()
         timestamp = int(time.time() * 1000)
-        msg = [timestamp, i, frame]
-        packed = msgpack.packb(msg)
+        packed = msgpack.packb(
+            {
+                "timestamp": timestamp,
+                "index": i,
+                "frame": frame,
+                "settings": settings.settings,
+            }
+        )
         publisher.send(packed)
         print(fn, end="\r")
 
@@ -47,6 +57,10 @@ try:
 except KeyboardInterrupt:
     pass
 finally:
-    publisher.close()
-    context.term()
     print()
+    print("closing settings")
+    settings.close()
+    print("closing publisher")
+    publisher.close()
+    print("term context")
+    context.term()

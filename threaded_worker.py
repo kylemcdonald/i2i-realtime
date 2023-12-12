@@ -21,11 +21,14 @@ class ThreadedWorker:
         return value
 
     def run(self):
-        while not self.should_exit:
-            input = self.input_queue.get()
-            if input is None:
-                break
-            self.output_queue.put(self.process(input))
+        try:
+            while not self.should_exit:
+                input = self.input_queue.get()
+                if input is None:
+                    break
+                self.output_queue.put(self.process(input))
+        except KeyboardInterrupt:
+            print("ThreadedWorker interrupted")
 
     def close(self):
         self.should_exit = True

@@ -17,8 +17,11 @@ class ThreadedProducer:
         pass
 
     def run(self):
-        while not self.should_exit:
-            self.output_queue.put(self.produce())
+        try:
+            while not self.should_exit:
+                self.output_queue.put(self.produce())
+        except KeyboardInterrupt:
+            print("ThreadedProducer interrupted")
 
     def cleanup(self):
         pass

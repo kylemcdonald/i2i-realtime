@@ -43,20 +43,20 @@ try:
 
         timestamp, index, jpg = msgpack.unpackb(msg)
         img = jpeg.decode(jpg, pixel_format=TJPF_RGB)
+        input_h, input_w = img.shape[:2]
 
         if args.resolution:
-            h, w = img.shape[:2]
-            h_new = int(args.resolution * h / w)
+            h_new = int(args.resolution * input_h / input_w)
             w_new = args.resolution
             img = cv2.resize(img, (w_new, h_new), interpolation=cv2.INTER_LANCZOS4)
 
         # write index to image using putText
 
         cur_timestamp = int(time.time() * 1000)
-        latency = f"latency {cur_timestamp - timestamp} ms"
+        text = f"{input_w}x{input_h} @ {cur_timestamp - timestamp} ms"
         cv2.putText(
             img,
-            latency,
+            text,
             (10, 50),
             cv2.FONT_HERSHEY_SIMPLEX,
             1,

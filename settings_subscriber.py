@@ -36,13 +36,14 @@ class SettingsSubscriber:
             if prompt != msg:
                 print("Translating from:", msg)
             override = "-f" in prompt
-            if not override and safety_checker(prompt) == "unsafe":
+            if override:
+                prompt = prompt.replace("-f", "").strip()
+            elif safety_checker(prompt) == "unsafe":
                 print("Ignoring unsafe prompt:", prompt)
                 return {"safety": "unsafe"}
-            else:
-                self.settings["prompt"] = prompt
-                print("Updated prompt:", prompt)
-                return {"safety": "safe"}
+            self.settings["prompt"] = prompt
+            print("Updated prompt:", prompt)
+            return {"safety": "safe"}
 
         @app.get("/fixed_seed/{status}")
         async def fixed_seed(status: bool):
