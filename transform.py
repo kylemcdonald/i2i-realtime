@@ -76,7 +76,7 @@ img_publisher.connect(f"tcp://{args.primary_hostname}:{args.output_port}")
 image_cache = {}
 
 
-def load_image(path):
+def load_image(path, width=None):
     if path not in image_cache:
         with open(path, "rb") as f:
             frame = f.read()
@@ -98,15 +98,15 @@ try:
         msg = batch_subscriber.recv()
         zmq_duration += time.time() - zmq_start
 
-        ignored_count = 0
-        while True:
-            try:
-                msg = batch_subscriber.recv(flags=zmq.NOBLOCK)
-                ignored_count += 1
-            except zmq.Again:
-                break
-        if ignored_count > 0:
-            print("Ignored messages:", ignored_count)
+        # ignored_count = 0
+        # while True:
+        #     try:
+        #         msg = batch_subscriber.recv(flags=zmq.NOBLOCK)
+        #         ignored_count += 1
+        #     except zmq.Again:
+        #         break
+        # if ignored_count > 0:
+        #     print("Ignored messages:", ignored_count)
 
         unpacked = msgpack.unpackb(msg)
         timestamp = unpacked["timestamp"]
