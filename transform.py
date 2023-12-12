@@ -180,7 +180,7 @@ class Sender(ThreadedWorker):
 
     def cleanup(self):
         self.push.close()
-        self.context.close()
+        self.context.term()
 
 
 # create from beginning to end
