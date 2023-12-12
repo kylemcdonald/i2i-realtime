@@ -92,10 +92,10 @@ class Receiver(ThreadedWorker):
 
     def work(self):
         while not self.should_exit:
-            msg = self.pull.recv()
+            msg = self.pull.recv() # this will not exit if the producer isn't running
             unpacked = msgpack.unpackb(msg)
             latency = (time.time() * 1000) - unpacked["timestamp"]
-            if latency > 0.1:
+            if latency > 100:
                 # print(f"{int(latency)}ms dropping old frames")
                 continue
             # print(f"{int(latency)}ms received {unpacked['indices']}")
@@ -147,9 +147,8 @@ class Processor(ThreadedWorker):
         unpacked["frames"] = results
         unpacked["worker_id"] = worker_id
 
-        duration = time.time() - start_time
         latency = time.time() - timestamp / 1000
-
+        duration = time.time() - start_time
         print(f"Diffusion {int(duration*1000)}ms Latency {int(latency*1000)}ms")
 
         return unpacked
@@ -191,8 +190,17 @@ class Sender(ThreadedWorker):
 
 # create from beginning to end
 receiver = Receiver(args.primary_hostname, args.input_port)
-processor = Processor().feed(receiver)
-sender = Sender(args.primary_hostname, args.output_port).feed(processor)
+processor = Processor()
+sender = Sender(args.primary_hostname, args.output_port)
+
+# name
+receiver.name = "receiver"
+processor.name = "processor"
+sender.name = "sender"
+
+# feed
+processor.feed(receiver)
+sender.feed(processor)
 
 # start from end to beginning
 sender.start()
@@ -206,12 +214,6 @@ except KeyboardInterrupt:
     pass
 
 # close end to beginning
-print("closing sender")
 sender.close()
-print("closing processor")
 processor.close()
-print("closing receiver")
 receiver.close()
-
-# print("term context")
-# context.term()
