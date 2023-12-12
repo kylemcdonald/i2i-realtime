@@ -18,7 +18,7 @@ parser.add_argument(
 )
 parser.add_argument("--start_time", type=int, default=0, help="Start time in seconds")
 parser.add_argument("--duration", type=int, default=None, help="Duration in seconds")
-parser.add_argument("--port", type=int, default=5555, help="Port number")
+parser.add_argument("--port", type=int, default=5555, help="PUSH port number")
 parser.add_argument("--settings_port", type=int, default=5556, help="Settings port")
 args = parser.parse_args()
 

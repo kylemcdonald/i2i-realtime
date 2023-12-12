@@ -20,6 +20,8 @@ import msgpack
 import numpy as np
 import time
 from turbojpeg import TurboJPEG, TJPF_RGB
+from utils.imutil import imresize
+import cv2
 
 from sfast.compilers.stable_diffusion_pipeline_compiler import (
     compile,
@@ -73,16 +75,22 @@ batch_subscriber.connect(f"tcp://{args.primary_hostname}:{args.input_port}")
 img_publisher = context.socket(zmq.PUSH)
 img_publisher.connect(f"tcp://{args.primary_hostname}:{args.output_port}")
 
-image_cache = {}
 
-
-def load_image(path, width=None):
-    if path not in image_cache:
-        with open(path, "rb") as f:
-            frame = f.read()
-        img = jpeg.decode(frame, pixel_format=TJPF_RGB)
-        image_cache[path] = img
-    return image_cache[path]
+def load_image(path, max_side):
+    with open(path, "rb") as f:
+        frame = f.read()
+    img = jpeg.decode(frame, pixel_format=TJPF_RGB)
+    
+    # slower but higher quality
+    # img = imresize(img, max_side=max_side)
+    
+    # faster
+    width = max_side
+    h,w = img.shape[:2]
+    height = int(width * h / w)
+    img = cv2.resize(img, (width, height), interpolation=cv2.INTER_AREA)
+    
+    return img
 
 
 jpeg = TurboJPEG()
@@ -117,9 +125,10 @@ try:
         images = []
         for frame in frames:
             if isinstance(frame, str):
-                img = load_image(frame)
+                img = load_image(frame, settings["resolution"])
             else:
                 img = jpeg.decode(frame, pixel_format=TJPF_RGB)
+                img = imresize(img, max_side=settings["resolution"])
             images.append(img / 255)
 
         diffusion_start_time = time.time()

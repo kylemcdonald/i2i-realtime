@@ -93,11 +93,13 @@ def downsample(img, scale=None, output_wh=None, max_side=None, min_side=None, bl
         output_wh = (img.shape[1]//block_size, img.shape[0]//block_size)
     else:
         block_size = img.shape[1]//output_wh[0]
+    if output_wh[0] == img.shape[1] and output_wh[1] == img.shape[0]:
+        return img # skip resize
     if block_size > 1:
         img = cv2.blur(img, (block_size, block_size))
     return cv2.resize(img, output_wh, interpolation=cv2.INTER_AREA if mode is None else mode)
 
-def upsample(img, scale=None, output_wh=None, max_side=None, min_side=None, mode=None):
+def upsample(img, scale=None, output_wh=None, max_side=None, min_side=None, mode=None):    
     if max_side is not None:
         cur_max_side = max(img.shape[:2])
         scale = max_side / cur_max_side
@@ -107,11 +109,15 @@ def upsample(img, scale=None, output_wh=None, max_side=None, min_side=None, mode
     if output_wh is None:
         output_wh = (int(np.round(img.shape[1]*scale)),
                      int(np.round(img.shape[0]*scale)))
+    if output_wh[0] == img.shape[1] and output_wh[1] == img.shape[0]:
+        return img # skip resize
     return cv2.resize(img, output_wh, interpolation=cv2.INTER_CUBIC if mode is None else mode)
 
 # output_wh value None in one dimension means "scale proportionally to other dimension"
 # output_wh value -1 in one dimension means "use the existing value"
 def imresize(img, scale=None, output_wh=None, max_side=None, min_side=None, mode=None):
+    if isinstance(output_wh, tuple):
+        output_wh = list(output_wh)
     big = True
     if max_side is not None:
         cur_max_side = max(img.shape[:2])

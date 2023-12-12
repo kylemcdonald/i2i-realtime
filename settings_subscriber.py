@@ -14,7 +14,7 @@ class SettingsSubscriber:
             "fixed_seed": True,
             "batch_size": 1,
             "seed": 0,
-            "width": 1024,
+            "resolution": 1024,
             "local_mode": True,
             "passthrough": True,
             "num_inference_steps": 2,
@@ -66,7 +66,13 @@ class SettingsSubscriber:
             self.settings["fixed_seed"] = status
             print("Updated fixed_seed status:", self.settings["fixed_seed"])
             return {"status": "updated"}
-
+        
+        @app.get("/resolution/{value}")
+        async def resolution(value: int):
+            self.settings["resolution"] = value
+            print("Updated resolution:", self.settings["resolution"])
+            return {"status": "updated"}
+        
         @app.get("/batch_size/{value}")
         async def batch_size(value: int):
             self.settings["batch_size"] = value

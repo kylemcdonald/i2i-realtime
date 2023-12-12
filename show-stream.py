@@ -8,6 +8,10 @@ from turbojpeg import TurboJPEG, TJPF_RGB
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--port", type=int, default=5555, help="Port number")
+parser.add_argument("--fullscreen", action="store_true", help="Enable fullscreen")
+parser.add_argument(
+    "--resolution", type=int, default=1920, help="Image width for resizing"
+)
 args = parser.parse_args()
 
 jpeg = TurboJPEG()
@@ -26,16 +30,16 @@ if fullscreen:
 try:
     while True:
         msg = img_subscriber.recv()
-        dropped_count = 0
-        while True:
-            try:
-                msg = img_subscriber.recv(flags=zmq.NOBLOCK)
-                dropped_count += 1
-            except zmq.Again:
-                break
+        # dropped_count = 0
+        # while True:
+        #     try:
+        #         msg = img_subscriber.recv(flags=zmq.NOBLOCK)
+        #         dropped_count += 1
+        #     except zmq.Again:
+        #         break
 
-        if dropped_count > 0:
-            print("Dropped messages:", dropped_count)
+        # if dropped_count > 0:
+        #     print("Dropped messages:", dropped_count)
 
         timestamp, index, jpg = msgpack.unpackb(msg)
         img = jpeg.decode(jpg, pixel_format=TJPF_RGB)
