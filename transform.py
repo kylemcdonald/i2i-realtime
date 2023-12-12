@@ -4,7 +4,6 @@ parser = argparse.ArgumentParser()
 parser.add_argument(
     "--primary_hostname", type=str, default="0.0.0.0", help="Hostname of primary server"
 )
-parser.add_argument("--batch_size", type=int, default=1, help="Batch size")
 parser.add_argument("--input_port", type=int, default=5555, help="Input port")
 parser.add_argument("--output_port", type=int, default=5558, help="Output port")
 args = parser.parse_args()
@@ -36,7 +35,6 @@ warnings.filterwarnings("ignore", category=torch.jit.TracerWarning)
 from PIL import Image
 
 from fixed_seed import fix_seed
-from batching_subscriber import BatchingSubscriber
 from threaded_worker import ThreadedWorker
 
 xl = True
@@ -69,50 +67,52 @@ pipe.to(device="cuda", dtype=torch.float16).to("cuda")
 pipe.set_progress_bar_config(disable=True)
 
 context = zmq.Context()
+batch_subscriber = context.socket(zmq.PULL)
+batch_subscriber.connect(f"tcp://{args.primary_hostname}:{args.input_port}")
+
 img_publisher = context.socket(zmq.PUSH)
 img_publisher.connect(f"tcp://{args.primary_hostname}:{args.output_port}")
 
 
 jpeg = TurboJPEG()
 
+generator = None
 
-class BatchTransformer(ThreadedWorker):
-    def __init__(self):
-        super().__init__()
-        self.generator = None
-
-    def process(self, batch):
+try:
+    while True:
         start_time = time.time()
 
+        msg = batch_subscriber.recv()
+        ignored_count = 0
+        while True:
+            try:
+                msg = batch_subscriber.recv(flags=zmq.NOBLOCK)
+                ignored_count += 1
+            except zmq.Again:
+                break
+        if ignored_count > 0:
+            print("Ignored messages:", ignored_count)
+
+
+        unpacked = msgpack.unpackb(msg)
+        timestamp = unpacked["timestamp"]
+        indices = unpacked["indices"]
+        frames = unpacked["frames"]
+        settings = unpacked["settings"]
+            
         images = []
-        jpg_duration = 0
-        zmq_duration = 0
-        timestamps = []
-        indices = []
-        for msg in batch:
-            unpacked = msgpack.unpackb(msg)
-            timestamp = unpacked["timestamp"]
-            timestamps.append(timestamp)
-            index = unpacked["index"]
-            indices.append(index)
-
-            jpg_start = time.time()
-            jpg = unpacked["frame"]
-            img = jpeg.decode(jpg, pixel_format=TJPF_RGB)
-            jpg_duration += time.time() - jpg_start
-
+        for frame in frames:
+            img = jpeg.decode(frame, pixel_format=TJPF_RGB)
             images.append(img / 255)
 
-            settings = unpacked["settings"]
-
         diffusion_start_time = time.time()
-        if settings["fixed_seed"] or self.generator is None:
-            self.generator = torch.manual_seed(settings["seed"])
+        if settings["fixed_seed"] or generator is None:
+            generator = torch.manual_seed(settings["seed"])
 
         results = pipe(
             prompt=[settings["prompt"]] * len(images),
             image=images,
-            generator=self.generator,
+            generator=generator,
             num_inference_steps=settings["num_inference_steps"],
             guidance_scale=settings["guidance_scale"],
             strength=settings["strength"],
@@ -120,11 +120,9 @@ class BatchTransformer(ThreadedWorker):
         )
         diffusion_duration = time.time() - diffusion_start_time
 
-        for timestamp, index, result in zip(timestamps, indices, results.images):
+        for index, result in zip(indices, results.images):
             img_u8 = (result * 255).astype(np.uint8)
-            jpg_start = time.time()
             jpg = jpeg.encode(img_u8, pixel_format=TJPF_RGB)
-            jpg_duration += time.time() - jpg_start
 
             msg = msgpack.packb(
                 {
@@ -135,39 +133,20 @@ class BatchTransformer(ThreadedWorker):
                 }
             )
 
-            zmq_start = time.time()
             img_publisher.send(msg)
-            zmq_duration += time.time() - zmq_start
 
         duration = time.time() - start_time
-        overhead = duration - diffusion_duration - jpg_duration
+        overhead = duration - diffusion_duration
         print("\033[K", end="", flush=True)  # clear entire line
         print(
-            f"Diffusion {int(diffusion_duration*1000)}ms + ZMQ {int(zmq_duration*1000)}ms + JPG {int(jpg_duration*1000)}ms + Overhead {int(overhead*1000)}ms = {int(duration*1000)}ms",
+            f"Diffusion {int(diffusion_duration*1000)}ms + Overhead {int(overhead*1000)}ms = {int(duration*1000)}ms",
             end="\r",
         )
-
-
-image_generator = BatchingSubscriber(
-    args.primary_hostname, args.input_port, batch_size=args.batch_size
-)
-batch_transformer = BatchTransformer()
-
-batch_transformer.feed(image_generator)
-
-batch_transformer.start()
-image_generator.start()
-
-try:
-    while True:
-        time.sleep(1)
 except KeyboardInterrupt:
     pass
 finally:
-    print("closing batch_transformer")
-    batch_transformer.close()
-    print("closing image_generator")
-    image_generator.close()
+    print("closing batch_subscriber")
+    batch_subscriber.close()
     print("closing img_publisher")
     img_publisher.close()
     print("term context")

@@ -25,34 +25,44 @@ publisher = context.socket(zmq.PUSH)
 publisher.bind(f"tcp://0.0.0.0:{args.port}")
 
 start_time = time.time()
-frame_number = 0
+input_frame_number = 0
+output_frame_number = 0
 
 try:
     file_list = os.listdir(args.input_folder)
     fns = list(sorted(file_list))
     n_frames = len(file_list)
     skip = args.input_fps // args.output_fps
-    for i, fn in cycle(enumerate(fns[::skip])):
-        fn = os.path.join(args.input_folder, fn)
-        with open(fn, "rb") as f:
-            frame = f.read()
+    
+    while True:
+        frames = []
+        indices = []
+        for i in range(settings["batch_size"]):
+            fn = os.path.join(args.input_folder, fns[input_frame_number])
+            with open(fn, "rb") as f:
+                frames.append(f.read())
+            indices.append(input_frame_number)
+            output_frame_number += 1
+            input_frame_number += skip
+            if input_frame_number >= n_frames:
+                input_frame_number = 0
+        
         timestamp = int(time.time() * 1000)
         packed = msgpack.packb(
             {
                 "timestamp": timestamp,
-                "index": i,
-                "frame": frame,
+                "indices": indices,
+                "frames": frames,
                 "settings": settings.settings,
             }
         )
         publisher.send(packed)
         print(fn, end="\r")
 
-        next_send_time = start_time + (frame_number + 1) / args.output_fps
+        next_send_time = start_time + output_frame_number / args.output_fps
         sleep_time = next_send_time - time.time()
         if sleep_time > 0:
             time.sleep(sleep_time)
-        frame_number += 1
 
 except KeyboardInterrupt:
     pass

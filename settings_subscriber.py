@@ -12,6 +12,7 @@ class SettingsSubscriber:
         self.shutdown = False
         self.settings = {
             "fixed_seed": True,
+            "batch_size": 1,
             "seed": 0,
             "num_inference_steps": 2,
             "guidance_scale": 0.0,
@@ -51,6 +52,12 @@ class SettingsSubscriber:
             print("Updated fixed_seed status:", self.settings["fixed_seed"])
             return {"status": "updated"}
 
+        @app.get("/batch_size/{value}")
+        async def batch_size(value: int):
+            self.settings["batch_size"] = value
+            print("Updated batch_size:", self.settings["batch_size"])
+            return {"status": "updated"}
+        
         @app.get("/seed/{value}")
         async def seed(value: int):
             self.settings["seed"] = value
