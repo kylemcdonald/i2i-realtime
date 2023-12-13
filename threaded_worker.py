@@ -48,7 +48,7 @@ class ThreadedWorker:
                     result = self.work(input)
                 else:
                     result = self.work()
-                if hasattr(self, "output_queue"):
+                if result is not None and hasattr(self, "output_queue"):
                     # print(self.name, "adding to output_queue")
                     self.output_queue.put(result)
         except KeyboardInterrupt:

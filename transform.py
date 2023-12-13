@@ -21,7 +21,6 @@ import numpy as np
 import time
 from turbojpeg import TurboJPEG, TJPF_RGB
 from utils.imutil import imresize
-import cv2
 
 from sfast.compilers.stable_diffusion_pipeline_compiler import (
     compile,
@@ -67,41 +66,22 @@ class Receiver(ThreadedWorker):
         self.context = zmq.Context()
         self.pull = self.context.socket(zmq.PULL)
         self.pull.connect(f"tcp://{hostname}:{port}")
-        self.jpeg = TurboJPEG()
-
-    def load_image(self, path, max_side):
-        with open(path, "rb") as f:
-            frame = f.read()
-        img = self.jpeg.decode(frame, pixel_format=TJPF_RGB)
-
-        # slower but higher quality
-        # img = imresize(img, max_side=max_side)
-
-        # faster
-        width = max_side
-        h, w = img.shape[:2]
-        height = int(width * h / w)
-        img = cv2.resize(img, (width, height), interpolation=cv2.INTER_AREA)
-
-        return img
 
     def work(self):
         while not self.should_exit:
             msg = self.pull.recv() # this will not exit if the producer isn't running
             unpacked = msgpack.unpackb(msg)
-            latency = (time.time() * 1000) - unpacked["timestamp"]
-            if latency > 100:
+            oldest_timestamp = min(unpacked["timestamps"])
+            latency = time.time() - oldest_timestamp
+            if latency > 0.5:
                 # print(f"{int(latency)}ms dropping old frames")
                 continue
             # print(f"{int(latency)}ms received {unpacked['indices']}")
             settings = unpacked["settings"]
             images = []
             for frame in unpacked["frames"]:
-                if isinstance(frame, str):
-                    img = self.load_image(frame, settings["resolution"])
-                else:
-                    img = self.jpeg.decode(frame, pixel_format=TJPF_RGB)
-                    img = imresize(img, max_side=settings["resolution"])
+                img = self.jpeg.decode(frame, pixel_format=TJPF_RGB)
+                img = imresize(img, max_side=settings["resolution"])
                 images.append(img / 255)
             unpacked["frames"] = images
             return unpacked
@@ -119,8 +99,6 @@ class Processor(ThreadedWorker):
     def work(self, unpacked):
         start_time = time.time()
 
-        timestamp = unpacked["timestamp"]
-        indices = unpacked["indices"]
         images = unpacked["frames"]
         settings = unpacked["settings"]
 
@@ -142,7 +120,7 @@ class Processor(ThreadedWorker):
         unpacked["frames"] = results
         unpacked["worker_id"] = worker_id
 
-        latency = time.time() - timestamp / 1000
+        latency = time.time() - min(unpacked["timestamps"])
         duration = time.time() - start_time
         print(f"Diffusion {int(duration*1000)}ms Latency {int(latency*1000)}ms")
 
@@ -160,10 +138,10 @@ class Sender(ThreadedWorker):
     def work(self, unpacked):
         indices = unpacked["indices"]
         results = unpacked["frames"]
-        timestamp = unpacked["timestamp"]
+        timestamps = unpacked["timestamps"]
         worker_id = unpacked["worker_id"]
 
-        for index, result in zip(indices, results):
+        for index, timestamp, result in zip(indices, timestamps, results):
             img_u8 = (result * 255).astype(np.uint8)
             jpg = self.jpeg.encode(img_u8, pixel_format=TJPF_RGB)
 

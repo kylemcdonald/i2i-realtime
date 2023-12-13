@@ -12,12 +12,11 @@ class SettingsSubscriber:
     def __init__(self, port):
         self.shutdown = False
         self.settings = {
+            "directory": "data/bg",
             "fixed_seed": True,
             "batch_size": 4,
-            "fps": 30,
             "seed": 0,
             "resolution": 1024,
-            "local_mode": False,
             "passthrough": False,
             "num_inference_steps": 3,
             "guidance_scale": 0.0,
@@ -59,12 +58,6 @@ class SettingsSubscriber:
             print("Updated prompt:", prompt)
             return {"safety": "safe"}
 
-        @app.get("/local_mode/{status}")
-        async def local_mode(status: bool):
-            self.settings["local_mode"] = status
-            print("Updated local_mode status:", self.settings["local_mode"])
-            return {"status": "updated"}
-
         @app.get("/passthrough/{status}")
         async def passthrough(status: bool):
             self.settings["passthrough"] = status
@@ -81,12 +74,6 @@ class SettingsSubscriber:
         async def resolution(value: int):
             self.settings["resolution"] = value
             print("Updated resolution:", self.settings["resolution"])
-            return {"status": "updated"}
-
-        @app.get("/fps/{value}")
-        async def fps(value: int):
-            self.settings["fps"] = value
-            print("Updated fps:", self.settings["fps"])
             return {"status": "updated"}
 
         @app.get("/batch_size/{value}")

@@ -48,10 +48,10 @@ class RemoveJitter:
             worker_id = unpacked["worker_id"]
             jpg = unpacked["jpg"]
 
-            latency = int(time.time() * 1000) - timestamp
+            latency = time.time() - timestamp
             # print("\033[K", end="", flush=True)  # clear entire line
             print(
-                f"outgoing: {index} #{worker_id} {latency}ms, {self.queue.qsize()}q {self.delay:.01f}ms"
+                f"outgoing: {index} #{worker_id} {int(1000*latency)}ms, {self.queue.qsize()}q {self.delay:.01f}ms"
             )
 
             packed = msgpack.packb([timestamp, index, jpg])
@@ -93,12 +93,12 @@ try:
         msg_buffer[index] = unpacked  # start by adding to buffer
 
         # drop all old messages to avoid memory leak
-        cur_time_ms = time.time() * 1000
+        cur_time = time.time()
         for key in list(msg_buffer.keys()):
             timestamp = unpacked["timestamp"]
-            latency = cur_time_ms - timestamp
-            if latency > 1000:
-                print(f"dropping {key} latency: {latency:.02f}")
+            latency = cur_time - timestamp
+            if latency > 1:
+                print(f"dropping {key} latency: {int(1000*latency)}ms")
                 del msg_buffer[key]
                 continue
 
