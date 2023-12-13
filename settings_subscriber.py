@@ -17,11 +17,11 @@ class SettingsSubscriber:
             "batch_size": 4,
             "seed": 0,
             "resolution": 1024,
-            "passthrough": False,
-            "num_inference_steps": 3,
+            "passthrough": True,
+            "num_inference_steps": 2,
             "guidance_scale": 0.0,
             "strength": 0.7,
-            "prompt": "Generative art.",
+            "prompt": "Dragonball Z",
         }
         self.thread = threading.Thread(target=self.run, args=(port,))
         self.thread.start()

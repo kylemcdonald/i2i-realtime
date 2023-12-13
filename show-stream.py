@@ -7,7 +7,7 @@ import msgpack
 from turbojpeg import TurboJPEG, TJPF_RGB
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--port", type=int, default=5555, help="Port number")
+parser.add_argument("--port", type=int, default=5557, help="Port number")
 parser.add_argument("--fullscreen", action="store_true", help="Enable fullscreen")
 parser.add_argument(
     "--resolution", type=int, default=1920, help="Image width for resizing"
@@ -45,13 +45,19 @@ try:
         img = jpeg.decode(jpg, pixel_format=TJPF_RGB)
         input_h, input_w = img.shape[:2]
 
-        if args.resolution:
-            h_new = int(args.resolution * input_h / input_w)
-            w_new = args.resolution
-            img = cv2.resize(img, (w_new, h_new), interpolation=cv2.INTER_LANCZOS4)
+        # if args.resolution:
+        #     h_new = int(args.resolution * input_h / input_w)
+        #     w_new = args.resolution
+        #     img = cv2.resize(img, (w_new, h_new), interpolation=cv2.INTER_LANCZOS4)
 
         # write index to image using putText
 
+
+        # put the image on the left
+        canvas = np.zeros((1024, 1280, 3), dtype=np.uint8)
+        canvas[:, :1024] = img[:,::-1,:]
+        img = canvas
+        
         latency = time.time() - timestamp
         text = f"{input_w}x{input_h} @ {int(1000*latency)} ms"
         cv2.putText(
@@ -64,7 +70,7 @@ try:
             2,
             cv2.LINE_AA,
         )
-
+        
         cv2.imshow(window_name, img[:, :, ::-1])
 
         key = cv2.waitKey(1)
