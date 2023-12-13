@@ -17,9 +17,9 @@ class OscVideoController(ThreadedWorker):
                 self.video.play()
             else:
                 self.video.pause()
-        elif msg.address == "/progress":
-            pct = msg.params[0]
-            self.video.scrub(pct)
+        # elif msg.address == "/progress":
+        #     pct = msg.params[0]
+        #     self.video.scrub(pct)
             
     def cleanup(self):
         self.osc.close()
