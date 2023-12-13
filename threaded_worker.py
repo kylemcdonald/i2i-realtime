@@ -10,7 +10,7 @@ class ThreadedWorker:
             self.output_queue = queue.Queue()
         self.should_exit = False
         self.thread = threading.Thread(target=self.run)
-        self.name = "ThreadedWorker"
+        self.name = self.__class__.__name__
         
     def set_name(self, name):
         self.name = name

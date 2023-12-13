@@ -122,9 +122,9 @@ file_list = os.listdir(args.input_folder)
 fns = numeric_sort(file_list)
 fns = [os.path.join(args.input_folder, fn) for fn in fns]
 
-playback = AutomaticPlayback(len(fns)).set_name("playback")
-# playback = ZmqPlayback(len(fns), args.index_port).set_name("playback")
-sender = Sender(fns, args.port).set_name("sender").feed(playback)
+playback = AutomaticPlayback(len(fns))
+# playback = ZmqPlayback(len(fns), args.index_port)
+sender = Sender(fns, args.port).feed(playback)
 
 playback.start()
 sender.start()
