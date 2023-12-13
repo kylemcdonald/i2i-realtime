@@ -60,4 +60,5 @@ class ThreadedWorker:
         self.should_exit = True
         if hasattr(self, "input_queue"):
             self.input_queue.put(None)
-        self.thread.join()
+        if self.thread.is_alive():
+            self.thread.join()

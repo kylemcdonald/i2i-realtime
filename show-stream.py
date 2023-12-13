@@ -52,8 +52,8 @@ try:
 
         # write index to image using putText
 
-        cur_timestamp = int(time.time() * 1000)
-        text = f"{input_w}x{input_h} @ {cur_timestamp - timestamp} ms"
+        latency = time.time() - timestamp
+        text = f"{input_w}x{input_h} @ {int(1000*latency)} ms"
         cv2.putText(
             img,
             text,
@@ -82,7 +82,8 @@ try:
                     window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_KEEPRATIO
                 )
 
-except Exception as e:
-    print(e)
-    img_subscriber.close()
-    context.term()
+except KeyboardInterrupt:
+    pass
+
+img_subscriber.close()
+context.term()
