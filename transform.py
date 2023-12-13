@@ -66,6 +66,7 @@ class Receiver(ThreadedWorker):
         self.context = zmq.Context()
         self.pull = self.context.socket(zmq.PULL)
         self.pull.connect(f"tcp://{hostname}:{port}")
+        self.jpeg = TurboJPEG()
 
     def work(self):
         while not self.should_exit:

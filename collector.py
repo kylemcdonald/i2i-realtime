@@ -77,7 +77,8 @@ class RemoveJitter:
     def stop(self):
         self.should_exit = True
         self.queue.put(None)
-        self.thread.join()
+        if self.thread.is_alive():
+            self.thread.join()
         self.running = False
 
 
