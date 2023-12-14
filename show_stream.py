@@ -5,10 +5,9 @@ import zmq
 import msgpack
 import time
 from threaded_worker import ThreadedWorker
-import subprocess
 
 class ShowStream(ThreadedWorker):
-    def __init__(self, port, fullscreen, mirror=False, debug=False):
+    def __init__(self, port, windowed, mirror=False, debug=False, right_padded=False):
         super().__init__(has_input=False, has_output=False)
         self.jpeg = TurboJPEG()
         self.context = zmq.Context()
@@ -17,9 +16,10 @@ class ShowStream(ThreadedWorker):
         print(f"Connecting to {address}")
         self.img_subscriber.connect(address)
         self.img_subscriber.setsockopt(zmq.SUBSCRIBE, b"")
-        self.fullscreen = fullscreen
+        self.fullscreen = not windowed
         self.mirror = mirror
         self.debug = debug
+        self.right_padded = right_padded
         self.window_name = f"Port {port}"
         
     def setup(self):
@@ -34,12 +34,13 @@ class ShowStream(ThreadedWorker):
         img = self.jpeg.decode(jpg, pixel_format=TJPF_RGB)
         input_h, input_w = img.shape[:2]
 
-        # put the image on the left
-        canvas = np.zeros((1024, 1280, 3), dtype=np.uint8)
         if self.mirror:
             img = img[:,::-1,:]
-        canvas[:, :1024] = img
-        img = canvas
+            
+        if self.right_padded:
+            canvas = np.zeros((1024, 1280, 3), dtype=np.uint8)
+            canvas[:, :1024] = img
+            img = canvas
         
         if self.debug:
             latency = time.time() - timestamp
