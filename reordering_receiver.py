@@ -14,7 +14,11 @@ class ReorderingReceiver(ThreadedWorker):
         self.next_index = None
         
     def work(self):
-        msg = self.receiver.recv()
+        try:
+            msg = self.receiver.recv(zmq.NOBLOCK)
+        except zmq.ZMQError:
+            time.sleep(0.1)
+            return
         unpacked = msgpack.unpackb(msg)
         index = unpacked["index"]
         self.msg_buffer[index] = unpacked  # start by adding to buffer
@@ -33,15 +37,15 @@ class ReorderingReceiver(ThreadedWorker):
         worker_id = unpacked["worker_id"]
         jpg = unpacked["jpg"]
 
-        if next_index is None:
+        if self.next_index is None:
             # if next_index is None, let's start with this one
-            next_index = index
+            self.next_index = index
 
-        diff = abs(index - next_index)
+        diff = abs(index - self.next_index)
         if diff > 12:
             # if we got a big jump, let's just jump to it
             # this also works for resetting to 0
-            next_index = index
+            self.next_index = index
 
         # msg_buffer[index] = unpacked
         # print(f"incoming: {index} #{worker_id} {latency}ms")
@@ -50,12 +54,12 @@ class ReorderingReceiver(ThreadedWorker):
         # publisher.send(packed) # echo mode
 
         # ordered mode
-        while next_index in self.msg_buffer:
-            unpacked = self.msg_buffer[next_index]
+        while self.next_index in self.msg_buffer:
+            unpacked = self.msg_buffer[self.next_index]
             self.sender.queue.put(unpacked)
             self.sender.start()
-            del self.msg_buffer[next_index]
-            next_index += 1
+            del self.msg_buffer[self.next_index]
+            self.next_index += 1
         
     def cleanup(self):
         self.receiver.close()

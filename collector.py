@@ -7,6 +7,9 @@ print("ready for messages")
 remove_jitter = RemoveJitter(5557)
 reordering_receiver = ReorderingReceiver(remove_jitter, 5558)
 
+reordering_receiver.start()
+remove_jitter.start()
+
 try:
     while True:
         time.sleep(1)

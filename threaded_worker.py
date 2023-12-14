@@ -22,6 +22,8 @@ class ThreadedWorker:
         return self
 
     def start(self):
+        if self.thread.is_alive():
+            return self
         print(self.name, "starting")
         self.thread.start()
         return self
