@@ -10,9 +10,19 @@ parser.add_argument(
     "--primary_hostname", type=str, default="0.0.0.0", help="Hostname of primary server"
 )
 parser.add_argument("--input_port", type=int, default=5555, help="Input port")
-parser.add_argument("--warmup", type=str, help="Warmup batch size and resolution e.g. 4x3x1024x1024")
+parser.add_argument("--warmup", type=str, help="Warmup batch size and resolution e.g. 4x1024x1024x3")
 parser.add_argument("--output_port", type=int, default=5558, help="Output port")
 args = parser.parse_args()
+
+try:
+    args.primary_hostname = os.environ["PRIMARY_HOSTNAME"]
+except KeyError:
+    pass
+
+try:
+    args.warmup = os.environ["WARMUP"]
+except KeyError:
+    pass
 
 worker_id = os.environ["WORKER_ID"]
 print(f"Starting worker #{worker_id}")
