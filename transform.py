@@ -39,6 +39,7 @@ from sfast.compilers.stable_diffusion_pipeline_compiler import (
     CompilationConfig,
 )
 
+from diffusers.utils.logging import disable_progress_bar
 from diffusers import AutoPipelineForImage2Image, AutoencoderTiny
 import torch
 import warnings
@@ -53,17 +54,18 @@ from threaded_worker import ThreadedWorker
 base_model = "stabilityai/sdxl-turbo"
 vae_model = "madebyollin/taesdxl"
 
+disable_progress_bar()
 pipe = AutoPipelineForImage2Image.from_pretrained(
     base_model,
     torch_dtype=torch.float16,
     variant="fp16",
     local_files_only=os.environ["LOCAL_FILES_ONLY"]
 )
+
 pipe.vae = AutoencoderTiny.from_pretrained(
     vae_model,
     torch_dtype=torch.float16,
     local_files_only=os.environ["LOCAL_FILES_ONLY"])
-pipe.set_progress_bar_config(disable=True)
 fix_seed(pipe)
 
 config = CompilationConfig.Default()
@@ -73,7 +75,6 @@ config.enable_cuda_graph = True
 pipe = compile(pipe, config=config)
 
 pipe.to(device="cuda", dtype=torch.float16).to("cuda")
-pipe.set_progress_bar_config(disable=True)
 
 
 class Receiver(ThreadedWorker):
