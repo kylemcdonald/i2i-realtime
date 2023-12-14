@@ -3,13 +3,13 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import time
+import json
 
 from safety_checker import SafetyChecker
 from translate import Translate
 
-
 class SettingsSubscriber:
-    def __init__(self, port, use_translation, use_safety_checker):
+    def __init__(self, port, use_translation, use_safety_checker, num_inference_steps):
         self.shutdown = False
         self.settings = {
             "directory": "data/bg",
@@ -18,11 +18,12 @@ class SettingsSubscriber:
             "seed": 0,
             "resolution": 1024,
             "passthrough": False,
-            "num_inference_steps": 2,
+            "num_inference_steps": num_inference_steps,
             "guidance_scale": 0.0,
             "strength": 0.7,
             "prompt": "A psychedelic landscape."
         }
+        print(json.dumps(self.settings, indent=2))
         self.use_translation = use_translation
         self.use_safety_checker = use_safety_checker
         self.thread = threading.Thread(target=self.run, args=(port,))
@@ -67,6 +68,12 @@ class SettingsSubscriber:
             print("Updated prompt:", prompt)
             return {"safety": "safe"}
 
+        @app.get("/directory/{status}")
+        async def directory(status: str):
+            self.settings["directory"] = "data/" + status
+            print("Updated directory status:", self.settings["directory"])
+            return {"status": "updated"}
+        
         @app.get("/passthrough/{status}")
         async def passthrough(status: bool):
             self.settings["passthrough"] = status

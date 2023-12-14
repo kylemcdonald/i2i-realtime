@@ -29,17 +29,29 @@ python input-publisher.py --port 8000
 sudo bash install-worker-service.sh
 ```
 
-## Shut-down
+## Shutdown and reload
 
-Add a keyboard shortcut pointing to "/home/rzm/Documents/i2i-realtime/./shutdown.sh"
+### Setting privileges
 
-## sudo privileges
-
-Give the user sudo to allow shutdown.
+Give the user sudo to allow shutdown from a script.
 
 ```
 sudo usermod -aG sudo <username>
 ```
+
+And polkit is for systemctl (and maybe shutdown too? Not sure).
+
+```
+bash install-polkit.sh
+```
+
+Make sure to copy the ssh keys with ssh-keygen and ssh-copy-id.
+
+### Setting Keyboard shortcuts
+
+Add a keyboard shortcut pointing to "/home/rzm/Documents/i2i-realtime/./shutdown.sh"
+
+Add another keyboard shortcut pointing to "/home/rzm/Documents/i2i-realtime/./reload.sh"
 
 ## `stream-images.py`
 
