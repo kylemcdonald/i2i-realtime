@@ -29,6 +29,24 @@ python input-publisher.py --port 8000
 sudo bash install-worker-service.sh
 ```
 
+## Start-up and shut-down
+
+Install XBindKeys:
+
+```
+sudo apt install -y xbindkeys xbindkeys-config
+xbindkeys --defaults > ~/.xbindkeysrc
+DISPLAY=:0 xbindkeys-config
+```
+
+Add an action for `control+shift + q` pointing to:
+
+```
+bash /home/rzm/Documents/i2i-realtime/shutdown.sh
+```
+
+Then click "Save, Apply & Exit"
+
 ## `stream-images.py`
 
 Reads a folder from disk and streams it over the specified port at the specified fps.
