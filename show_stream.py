@@ -69,9 +69,6 @@ class ShowStream(ThreadedWorker):
                 cv2.setWindowProperty(
                     self.window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_KEEPRATIO
                 )
-        elif key == ord("q") or key == ord("Q"):
-            print("Shutting down", flush=True)
-            subprocess.call(["./shutdown.sh"])
                 
     def cleanup(self):
         self.img_subscriber.close()
