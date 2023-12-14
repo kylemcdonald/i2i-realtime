@@ -59,8 +59,8 @@ class ShowStream(ThreadedWorker):
         key = cv2.waitKey(1)
         # toggle fullscreen when user presses 'f' key
         if key == ord("f"):
-            fullscreen = not fullscreen
-            if fullscreen:
+            self.fullscreen = not self.fullscreen
+            if self.fullscreen:
                 cv2.setWindowProperty(
                     self.window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN
                 )

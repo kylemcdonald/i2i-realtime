@@ -22,7 +22,7 @@ class ZmqSender(ThreadedWorker):
             }
         )
         self.publisher.send(packed)
-        print(indices, end="\r")
+        # print(indices, end="\r")
 
     def cleanup(self):
         self.publisher.close()

@@ -15,11 +15,16 @@ from osc_video_controller import OscVideoController
 from osc_settings_controller import OscSettingsController
 from remove_jitter import RemoveJitter
 from reordering_receiver import ReorderingReceiver
+from show_stream import ShowStream
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--fps", type=int, default=30)
 parser.add_argument("--job_port", type=int, default=5555)
 parser.add_argument("--settings_port", type=int, default=5556)
+parser.add_argument("--display_port", type=int, default=5557)
+parser.add_argument("--fullscreen", action="store_true")
+parser.add_argument("--mirror", action="store_true", help="Mirror output")
+parser.add_argument("--debug", action="store_true", help="Show debug info")
 parser.add_argument("--osc_port", type=int, default=8000)
 parser.add_argument("--mode", required=True, choices=["video", "camera"])
 args = parser.parse_args()
@@ -40,7 +45,13 @@ sender = ZmqSender(settings, args.job_port).feed(batcher)
 remove_jitter = RemoveJitter(5557)
 reordering_receiver = ReorderingReceiver(remove_jitter, 5558)
 
+# create display end
+show_stream = ShowStream(args.display_port, args.fullscreen, args.mirror, args.debug)
+
 # start from the end of the chain to the beginning
+
+# start display
+show_stream.start()
 
 # start receiving end
 reordering_receiver.start()
@@ -64,6 +75,9 @@ except KeyboardInterrupt:
 print()
 
 # stop from the end of the chain to the beginning
+
+# close display end
+show_stream.close()
 
 # close receiving end
 remove_jitter.stop()

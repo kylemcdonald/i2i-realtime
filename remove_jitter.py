@@ -37,9 +37,9 @@ class RemoveJitter:
 
             latency = time.time() - timestamp
             # print("\033[K", end="", flush=True)  # clear entire line
-            print(
-                f"outgoing: {index} #{worker_id} {int(1000*latency)}ms, {self.queue.qsize()}q {self.delay:.01f}ms"
-            )
+            # print(
+            #     f"outgoing: {index} #{worker_id} {int(1000*latency)}ms, {self.queue.qsize()}q {self.delay:.01f}ms"
+            # )
 
             packed = msgpack.packb([timestamp, index, jpg])
 
