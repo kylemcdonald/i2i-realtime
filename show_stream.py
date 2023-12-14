@@ -5,6 +5,7 @@ import zmq
 import msgpack
 import time
 from threaded_worker import ThreadedWorker
+import subprocess
 
 class ShowStream(ThreadedWorker):
     def __init__(self, port, fullscreen, mirror=False, debug=False):
@@ -68,6 +69,8 @@ class ShowStream(ThreadedWorker):
                 cv2.setWindowProperty(
                     self.window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_KEEPRATIO
                 )
+        elif key == ord("q"):
+            subprocess.call(["shutdown.sh"])
                 
     def cleanup(self):
         self.img_subscriber.close()
