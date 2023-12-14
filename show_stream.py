@@ -59,7 +59,7 @@ class ShowStream(ThreadedWorker):
 
         key = cv2.waitKey(1)
         # toggle fullscreen when user presses 'f' key
-        if key == ord("f"):
+        if key == ord("f") or key == ord("F"):
             self.fullscreen = not self.fullscreen
             if self.fullscreen:
                 cv2.setWindowProperty(
@@ -69,8 +69,9 @@ class ShowStream(ThreadedWorker):
                 cv2.setWindowProperty(
                     self.window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_KEEPRATIO
                 )
-        elif key == ord("q"):
-            subprocess.call(["shutdown.sh"])
+        elif key == ord("q") or key == ord("Q"):
+            print("Shutting down", flush=True)
+            subprocess.call(["./shutdown.sh"])
                 
     def cleanup(self):
         self.img_subscriber.close()
