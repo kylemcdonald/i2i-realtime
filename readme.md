@@ -47,6 +47,14 @@ bash /home/rzm/Documents/i2i-realtime/shutdown.sh
 
 Then click "Save, Apply & Exit"
 
+## sudo privileges
+
+Give the user sudo to allow shutdown.
+
+```
+sudo usermod -aG sudo <username>
+```
+
 ## `stream-images.py`
 
 Reads a folder from disk and streams it over the specified port at the specified fps.
