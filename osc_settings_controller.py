@@ -11,13 +11,16 @@ class OscSettingsController(ThreadedWorker):
         msg = self.osc.recv()
         if msg is None:
             return
-        print("osc", msg.address, msg.params)
         if msg.address == "/prompt":
             prompt = ' '.join(msg.params)
+            print("OSC prompt:", prompt)
             self.settings.settings["prompt"] = prompt
         elif msg.address == "/seed":
             seed = msg.params[0]
+            print("OSC seed:", seed)
             self.settings.settings["seed"] = seed
+        else:
+            print("unknown osc", msg.address, msg.params)
             
     def cleanup(self):
         self.osc.close()

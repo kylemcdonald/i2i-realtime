@@ -9,7 +9,7 @@ from translate import Translate
 
 
 class SettingsSubscriber:
-    def __init__(self, port):
+    def __init__(self, port, use_translation, use_safety_checker):
         self.shutdown = False
         self.settings = {
             "directory": "data/bg",
@@ -17,12 +17,14 @@ class SettingsSubscriber:
             "batch_size": 4,
             "seed": 0,
             "resolution": 1024,
-            "passthrough": True,
+            "passthrough": False,
             "num_inference_steps": 2,
             "guidance_scale": 0.0,
             "strength": 0.7,
-            "prompt": "Dragonball Z",
+            "prompt": "A psychedelic landscape."
         }
+        self.use_translation = use_translation
+        self.use_safety_checker = use_safety_checker
         self.thread = threading.Thread(target=self.run, args=(port,))
         self.thread.start()
 
@@ -30,8 +32,10 @@ class SettingsSubscriber:
         return self.settings[key]
 
     def run(self, port):
-        safety_checker = SafetyChecker()
-        translate = Translate()
+        if self.use_translation:
+            translate = Translate()
+        if self.use_safety_checker:
+            safety_checker = SafetyChecker()
 
         app = FastAPI()
 
@@ -45,15 +49,20 @@ class SettingsSubscriber:
 
         @app.get("/prompt/{msg}")
         async def prompt(msg: str):
-            prompt = translate.translate_to_en(msg)
-            if prompt != msg:
-                print("Translating from:", msg)
+            if self.use_translation:
+                prompt = translate.translate_to_en(msg)
+                if prompt != msg:
+                    print("Translating from:", msg)
+            else:
+                prompt = msg
+            
             override = "-f" in prompt
             if override:
                 prompt = prompt.replace("-f", "").strip()
-            elif safety_checker(prompt) == "unsafe":
+            if self.use_safety_checker and safety_checker(prompt) == "unsafe":
                 print("Ignoring unsafe prompt:", prompt)
                 return {"safety": "unsafe"}
+            
             self.settings["prompt"] = prompt
             print("Updated prompt:", prompt)
             return {"safety": "safe"}

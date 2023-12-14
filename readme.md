@@ -23,6 +23,12 @@ python show-stream.py --port 5557 &
 python input-publisher.py --port 8000
 ```
 
+# Updated
+
+```
+sudo bash install-worker-service.sh
+```
+
 ## `stream-images.py`
 
 Reads a folder from disk and streams it over the specified port at the specified fps.

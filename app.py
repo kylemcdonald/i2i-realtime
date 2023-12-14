@@ -25,11 +25,13 @@ parser.add_argument("--display_port", type=int, default=5557)
 parser.add_argument("--fullscreen", action="store_true")
 parser.add_argument("--mirror", action="store_true", help="Mirror output")
 parser.add_argument("--debug", action="store_true", help="Show debug info")
+parser.add_argument("--translation", action="store_true", help="Use translation")
+parser.add_argument("--safety", action="store_true", help="Use safety")
 parser.add_argument("--osc_port", type=int, default=8000)
 parser.add_argument("--mode", required=True, choices=["video", "camera"])
 args = parser.parse_args()
 
-settings = SettingsSubscriber(args.settings_port)
+settings = SettingsSubscriber(args.settings_port, args.translation, args.safety)
 
 # create sending end
 if args.mode == "video":
