@@ -1,6 +1,6 @@
 #!/bin/bash
 echo "Waiting to start..."
-sleep 240
+sleep 30
 echo "Done waiting, starting..."
 cd "$(dirname "$0")"
 source .venv/bin/activate

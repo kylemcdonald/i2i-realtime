@@ -3,6 +3,9 @@ import dotenv
 
 dotenv.load_dotenv()
 
+worker_id = os.environ["WORKER_ID"]
+print(f"Starting worker #{worker_id}")
+
 import argparse
 
 parser = argparse.ArgumentParser()
@@ -24,8 +27,6 @@ try:
 except KeyError:
     pass
 
-worker_id = os.environ["WORKER_ID"]
-print(f"Starting worker #{worker_id}")
 
 import zmq
 import msgpack
@@ -68,14 +69,20 @@ pipe.vae = AutoencoderTiny.from_pretrained(
     local_files_only=os.environ["LOCAL_FILES_ONLY"])
 fix_seed(pipe)
 
+print("Model loaded")
+
 config = CompilationConfig.Default()
 config.enable_xformers = True
 config.enable_triton = True
 config.enable_cuda_graph = True
 pipe = compile(pipe, config=config)
 
-pipe.to(device="cuda", dtype=torch.float16).to("cuda")
+print("Model compiled")
 
+pipe.to(device="cuda", dtype=torch.float16).to("cuda")
+pipe.set_progress_bar_config(disable=True)
+
+print("Model moved to GPU", flush=True)
 
 class Receiver(ThreadedWorker):
     def __init__(self, hostname, port):
@@ -119,6 +126,7 @@ class Processor(ThreadedWorker):
     def __init__(self):
         super().__init__()
         self.generator = None
+        self.batch_count = 0
         
     def diffusion(self, images, settings):
         return pipe(
@@ -147,9 +155,11 @@ class Processor(ThreadedWorker):
         unpacked["frames"] = results
         unpacked["worker_id"] = worker_id
 
-        latency = time.time() - min(unpacked["timestamps"])
-        duration = time.time() - start_time
-        print(f"Diffusion {int(duration*1000)}ms Latency {int(latency*1000)}ms")
+        if self.batch_count % 10 == 0:
+            latency = time.time() - min(unpacked["timestamps"])
+            duration = time.time() - start_time
+            print(f"Diffusion {int(duration*1000)}ms Latency {int(latency*1000)}ms", flush=True)
+        self.batch_count += 1
 
         return unpacked
 
@@ -203,7 +213,7 @@ if args.warmup:
         print(f"Warmup {args.warmup} {i+1}/2")
         start_time = time.time()
         processor.diffusion(images, {"prompt": "warmup", "num_inference_steps": 2, "strength": 1.0, "guidance_scale": 0.0})
-    print("Warmup finished")
+    print("Warmup finished", flush=True)
 
 # start from end to beginning
 sender.start()

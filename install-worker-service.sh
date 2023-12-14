@@ -20,6 +20,7 @@ WorkingDirectory=$(pwd)
 ExecStart=$(pwd)/$SCRIPT_NAME
 User=$USER
 Restart=always
+SyncIntervalSec=1s
 [Install]
 WantedBy=multi-user.target
 EOL
