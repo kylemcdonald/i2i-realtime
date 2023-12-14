@@ -1,95 +1,21 @@
-import zmq
-import cv2
-import numpy as np
 import argparse
 import time
-import msgpack
-from turbojpeg import TurboJPEG, TJPF_RGB
+from show_stream import ShowStream
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--port", type=int, default=5557, help="Port number")
 parser.add_argument("--fullscreen", action="store_true", help="Enable fullscreen")
-parser.add_argument(
-    "--resolution", type=int, default=1920, help="Image width for resizing"
-)
+parser.add_argument("--mirror", action="store_true", help="Mirror output")
+parser.add_argument("--debug", action="store_true", help="Show debug info")
 args = parser.parse_args()
 
-jpeg = TurboJPEG()
-
-context = zmq.Context()
-img_subscriber = context.socket(zmq.SUB)
-img_subscriber.connect(f"tcp://localhost:{args.port}")
-img_subscriber.setsockopt(zmq.SUBSCRIBE, b"")
-
-fullscreen = args.fullscreen
-window_name = f"Port {args.port}"
-cv2.namedWindow(window_name, cv2.WINDOW_GUI_NORMAL)
-if fullscreen:
-    cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+show_stream = ShowStream(args.port, args.fullscreen, args.mirror, args.debug)
+show_stream.start()
 
 try:
     while True:
-        msg = img_subscriber.recv()
-        # dropped_count = 0
-        # while True:
-        #     try:
-        #         msg = img_subscriber.recv(flags=zmq.NOBLOCK)
-        #         dropped_count += 1
-        #     except zmq.Again:
-        #         break
-
-        # if dropped_count > 0:
-        #     print("Dropped messages:", dropped_count)
-
-        timestamp, index, jpg = msgpack.unpackb(msg)
-        img = jpeg.decode(jpg, pixel_format=TJPF_RGB)
-        input_h, input_w = img.shape[:2]
-
-        # if args.resolution:
-        #     h_new = int(args.resolution * input_h / input_w)
-        #     w_new = args.resolution
-        #     img = cv2.resize(img, (w_new, h_new), interpolation=cv2.INTER_LANCZOS4)
-
-        # write index to image using putText
-
-
-        # put the image on the left
-        canvas = np.zeros((1024, 1280, 3), dtype=np.uint8)
-        canvas[:, :1024] = img[:,::-1,:]
-        img = canvas
-        
-        latency = time.time() - timestamp
-        text = f"{input_w}x{input_h} @ {int(1000*latency)} ms"
-        cv2.putText(
-            img,
-            text,
-            (10, 50),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1,
-            (0, 255, 255),
-            2,
-            cv2.LINE_AA,
-        )
-        
-        cv2.imshow(window_name, img[:, :, ::-1])
-
-        key = cv2.waitKey(1)
-        if key == 27:
-            break
-        # toggle fullscreen when user presses 'f' key
-        elif key == ord("f"):
-            fullscreen = not fullscreen
-            if fullscreen:
-                cv2.setWindowProperty(
-                    window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN
-                )
-            else:
-                cv2.setWindowProperty(
-                    window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_KEEPRATIO
-                )
-
+        time.sleep(1)
 except KeyboardInterrupt:
     pass
 
-img_subscriber.close()
-context.term()
+show_stream.close()
