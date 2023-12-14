@@ -1,3 +1,8 @@
+import os
+import dotenv
+
+dotenv.load_dotenv()
+
 import argparse
 
 parser = argparse.ArgumentParser()
@@ -5,13 +10,10 @@ parser.add_argument(
     "--primary_hostname", type=str, default="0.0.0.0", help="Hostname of primary server"
 )
 parser.add_argument("--input_port", type=int, default=5555, help="Input port")
+# parser.add_argument("--warmup", type=str, help="Warmup resolution e.g. 1024x1024")
 parser.add_argument("--output_port", type=int, default=5558, help="Output port")
 args = parser.parse_args()
 
-import os
-import dotenv
-
-dotenv.load_dotenv()
 worker_id = os.environ["WORKER_ID"]
 print(f"Starting worker #{worker_id}")
 
@@ -45,8 +47,12 @@ pipe = AutoPipelineForImage2Image.from_pretrained(
     base_model,
     torch_dtype=torch.float16,
     variant="fp16",
+    local_files_only=os.environ["LOCAL_FILES_ONLY"]
 )
-pipe.vae = AutoencoderTiny.from_pretrained(vae_model, torch_dtype=torch.float16)
+pipe.vae = AutoencoderTiny.from_pretrained(
+    vae_model,
+    torch_dtype=torch.float16,
+    local_files_only=os.environ["LOCAL_FILES_ONLY"])
 pipe.set_progress_bar_config(disable=True)
 fix_seed(pipe)
 
@@ -65,12 +71,16 @@ class Receiver(ThreadedWorker):
         super().__init__(has_input=False)
         self.context = zmq.Context()
         self.pull = self.context.socket(zmq.PULL)
-        self.pull.connect(f"tcp://{hostname}:{port}")
+        self.pull.connect(f"tcp://{hostname}:{port}")        
         self.jpeg = TurboJPEG()
 
     def work(self):
         while not self.should_exit:
-            msg = self.pull.recv() # this will not exit if the producer isn't running
+            try:
+                msg = self.pull.recv(flags=zmq.NOBLOCK)
+            except zmq.ZMQError:
+                time.sleep(0.1)
+                continue
             unpacked = msgpack.unpackb(msg)
             oldest_timestamp = min(unpacked["timestamps"])
             latency = time.time() - oldest_timestamp
@@ -163,9 +173,9 @@ class Sender(ThreadedWorker):
 
 
 # create from beginning to end
-receiver = Receiver(args.primary_hostname, args.input_port).set_name("receiver")
-processor = Processor().set_name("processor").feed(receiver)
-sender = Sender(args.primary_hostname, args.output_port).set_name("sender").feed(processor)
+receiver = Receiver(args.primary_hostname, args.input_port)
+processor = Processor().feed(receiver)
+sender = Sender(args.primary_hostname, args.output_port).feed(processor)
 
 # start from end to beginning
 sender.start()

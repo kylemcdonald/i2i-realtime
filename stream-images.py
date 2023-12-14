@@ -11,7 +11,8 @@ from settings_subscriber import SettingsSubscriber
 from threaded_camera import ThreadedCamera
 from batching_worker import BatchingWorker
 from zmq_sender import ZmqSender
-from osc_video_controller import OscVideoController
+# from osc_video_controller import OscVideoController
+from osc_settings_controller import OscSettingsController
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--fps", type=int, default=30)
@@ -25,29 +26,7 @@ settings = SettingsSubscriber(args.settings_port)
 video = ThreadedCamera()
 batcher = BatchingWorker(settings).feed(video)
 sender = ZmqSender(settings, args.job_port).feed(batcher)
-# controller = OscVideoController(video, "0.0.0.0", args.osc_port)
-
-from threaded_worker import ThreadedWorker
-from osc_socket import OscSocket
-
-class OscSettingsController(ThreadedWorker):
-    def __init__(self, settings, host, port):
-        super().__init__(has_input=False, has_output=False)
-        self.osc = OscSocket(host, port)
-        self.settings = settings
-        
-    def work(self):
-        msg = self.osc.recv()
-        if msg is None:
-            return
-        print("osc", msg.address, msg.params)
-        if msg.address == "/prompt":
-            prompt = ' '.join(msg.params)
-            settings.settings["prompt"] = prompt
-            
-    def cleanup(self):
-        self.osc.close()
-        
+# controller = OscVideoController(video, "0.0.0.0", args.osc_port)        
 controller = OscSettingsController(settings, "0.0.0.0", args.osc_port)
 
 controller.start()
