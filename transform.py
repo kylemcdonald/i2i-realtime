@@ -81,7 +81,9 @@ class Receiver(ThreadedWorker):
         super().__init__(has_input=False)
         self.context = zmq.Context()
         self.pull = self.context.socket(zmq.PULL)
-        self.pull.connect(f"tcp://{hostname}:{port}")        
+        address = f"tcp://{hostname}:{port}"
+        print(f"Receiver connecting to {address}")
+        self.pull.connect(address) 
         self.jpeg = TurboJPEG()
 
     def work(self):
@@ -156,7 +158,9 @@ class Sender(ThreadedWorker):
         super().__init__(has_output=False)
         self.context = zmq.Context()
         self.push = self.context.socket(zmq.PUSH)
-        self.push.connect(f"tcp://{hostname}:{port}")
+        address = f"tcp://{hostname}:{port}"
+        print(f"Sender connecting to {address}")
+        self.push.connect(address)
         self.jpeg = TurboJPEG()
 
     def work(self, unpacked):
