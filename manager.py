@@ -7,11 +7,11 @@ import msgpack
 from threaded_worker import ThreadedWorker
 
 from settings_subscriber import SettingsSubscriber
-# from threaded_sequence import ThreadedSequence
+from threaded_sequence import ThreadedSequence
 from threaded_camera import ThreadedCamera
 from batching_worker import BatchingWorker
 from zmq_sender import ZmqSender
-# from osc_video_controller import OscVideoController
+from osc_video_controller import OscVideoController
 from osc_settings_controller import OscSettingsController
 
 parser = argparse.ArgumentParser()
@@ -19,22 +19,26 @@ parser.add_argument("--fps", type=int, default=30)
 parser.add_argument("--job_port", type=int, default=5555)
 parser.add_argument("--settings_port", type=int, default=5556)
 parser.add_argument("--osc_port", type=int, default=8000)
+parser.add_argument("--mode", required=True, choices=["video", "camera"])
 args = parser.parse_args()
 
 settings = SettingsSubscriber(args.settings_port)
-# video = ThreadedSequence(settings, args.fps)
-video = ThreadedCamera()
+if args.mode == "video":
+    video = ThreadedSequence(settings, args.fps)
+    controller = OscVideoController(video, "0.0.0.0", args.osc_port)        
+elif args.mode == "camera":
+    video = ThreadedCamera()
+    controller = OscSettingsController(settings, "0.0.0.0", args.osc_port)
 batcher = BatchingWorker(settings).feed(video)
 sender = ZmqSender(settings, args.job_port).feed(batcher)
-# controller = OscVideoController(video, "0.0.0.0", args.osc_port)        
-controller = OscSettingsController(settings, "0.0.0.0", args.osc_port)
 
 controller.start()
 sender.start()
 batcher.start()
 video.start()
 
-# video.play()
+if args.mode == "video":
+    video.play()
 
 try:
     while True:
