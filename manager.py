@@ -13,6 +13,8 @@ from batching_worker import BatchingWorker
 from zmq_sender import ZmqSender
 from osc_video_controller import OscVideoController
 from osc_settings_controller import OscSettingsController
+from remove_jitter import RemoveJitter
+from reordering_receiver import ReorderingReceiver
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--fps", type=int, default=30)
@@ -23,6 +25,8 @@ parser.add_argument("--mode", required=True, choices=["video", "camera"])
 args = parser.parse_args()
 
 settings = SettingsSubscriber(args.settings_port)
+
+# create sending end
 if args.mode == "video":
     video = ThreadedSequence(settings, args.fps)
     controller = OscVideoController(video, "0.0.0.0", args.osc_port)        
@@ -32,6 +36,17 @@ elif args.mode == "camera":
 batcher = BatchingWorker(settings).feed(video)
 sender = ZmqSender(settings, args.job_port).feed(batcher)
 
+# create receiving end
+remove_jitter = RemoveJitter(5557)
+reordering_receiver = ReorderingReceiver(remove_jitter, 5558)
+
+# start from the end of the chain to the beginning
+
+# start receiving end
+reordering_receiver.start()
+remove_jitter.start()
+
+# start sending end
 controller.start()
 sender.start()
 batcher.start()
@@ -47,6 +62,14 @@ except KeyboardInterrupt:
     pass
 
 print()
+
+# stop from the end of the chain to the beginning
+
+# close receiving end
+remove_jitter.stop()
+reordering_receiver.close()
+    
+# close sending end
 controller.close()
 settings.close()
 sender.close()
