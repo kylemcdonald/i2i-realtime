@@ -1,6 +1,6 @@
-SERVICE_ID=i2i-worker
-SERVICE_NAME="i2i-worker"
-SCRIPT_NAME="run-worker.sh"
+SERVICE_ID=i2i-server
+SERVICE_NAME="i2i-server"
+SCRIPT_NAME="run-server.sh"
 
 # do not edit below this line
 

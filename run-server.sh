@@ -2,4 +2,4 @@
 sleep 60
 cd "$(dirname "$0")"
 source .venv/bin/activate
-python app.py
+DISPLAY=:0 python app.py --mode camera --mirror --fullscreen
