@@ -6,6 +6,7 @@ import re
 import msgpack
 import psutil
 from threaded_worker import ThreadedWorker
+import dotenv
 
 from settings_subscriber import SettingsSubscriber
 from threaded_sequence import ThreadedSequence
