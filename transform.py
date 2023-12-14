@@ -10,7 +10,7 @@ parser.add_argument(
     "--primary_hostname", type=str, default="0.0.0.0", help="Hostname of primary server"
 )
 parser.add_argument("--input_port", type=int, default=5555, help="Input port")
-# parser.add_argument("--warmup", type=str, help="Warmup resolution e.g. 1024x1024")
+parser.add_argument("--warmup", type=str, help="Warmup batch size and resolution e.g. 4x3x1024x1024")
 parser.add_argument("--output_port", type=int, default=5558, help="Output port")
 args = parser.parse_args()
 
@@ -107,6 +107,17 @@ class Processor(ThreadedWorker):
         super().__init__()
         self.generator = None
         
+    def diffusion(self, images, settings):
+        return pipe(
+                prompt=[settings["prompt"]] * len(images),
+                image=images,
+                generator=self.generator,
+                num_inference_steps=settings["num_inference_steps"],
+                guidance_scale=settings["guidance_scale"],
+                strength=settings["strength"],
+                output_type="np",
+            ).images
+        
     def work(self, unpacked):
         start_time = time.time()
 
@@ -118,15 +129,7 @@ class Processor(ThreadedWorker):
         else:
             if settings["fixed_seed"] or self.generator is None:
                 self.generator = torch.manual_seed(settings["seed"])
-            results = pipe(
-                prompt=[settings["prompt"]] * len(images),
-                image=images,
-                generator=self.generator,
-                num_inference_steps=settings["num_inference_steps"],
-                guidance_scale=settings["guidance_scale"],
-                strength=settings["strength"],
-                output_type="np",
-            ).images
+            results = self.diffusion(images, settings)
 
         unpacked["frames"] = results
         unpacked["worker_id"] = worker_id
@@ -176,6 +179,16 @@ class Sender(ThreadedWorker):
 receiver = Receiver(args.primary_hostname, args.input_port)
 processor = Processor().feed(receiver)
 sender = Sender(args.primary_hostname, args.output_port).feed(processor)
+
+# warmup
+if args.warmup:
+    warmup_shape = tuple(map(int, args.warmup.split("x")))
+    images = np.zeros(warmup_shape, dtype=np.float32)
+    for i in range(2):
+        print(f"Warmup {args.warmup} {i+1}/2")
+        start_time = time.time()
+        processor.diffusion(images, {"prompt": "warmup", "num_inference_steps": 2, "strength": 1.0, "guidance_scale": 0.0})
+    print("Warmup finished")
 
 # start from end to beginning
 sender.start()
