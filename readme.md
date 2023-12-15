@@ -59,6 +59,17 @@ Add a keyboard shortcut pointing to "/home/rzm/Documents/i2i-realtime/./shutdown
 
 Add another keyboard shortcut pointing to "/home/rzm/Documents/i2i-realtime/./reload.sh"
 
+### Disable updates and notifications
+
+```
+gsettings set org.gnome.desktop.notifications show-banners false
+sudo systemctl disable --now apt-daily{{,-upgrade}.service,{,-upgrade}.timer}
+sudo systemctl disable --now unattended-upgrades
+sudo systemctl daemon-reload
+sudo systemctl stop unattended-upgrades
+sudo systemctl mask unattended-upgrades
+```
+
 ## `stream-images.py`
 
 Reads a folder from disk and streams it over the specified port at the specified fps.
