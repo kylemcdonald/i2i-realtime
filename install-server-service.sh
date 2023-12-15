@@ -13,8 +13,8 @@ echo "Installing $SERVICE_NAME to $SERVICE_FN"
 sudo tee "$SERVICE_FN" > /dev/null <<EOL
 [Unit]
 Description=$SERVICE_NAME
-After=graphical.target network-online.target
-Wants=graphical.target network-online.target
+After=network-online.target
+Wants=network-online.target
 [Service]
 WorkingDirectory=$(pwd)
 ExecStart=$(pwd)/$SCRIPT_NAME
