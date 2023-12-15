@@ -23,6 +23,12 @@ python show-stream.py --port 5557 &
 python input-publisher.py --port 8000
 ```
 
+Remove the cursor after 1 second (applied on reboot):
+
+```
+sudo apt-get install unclutter
+```
+
 # Updated
 
 ```
