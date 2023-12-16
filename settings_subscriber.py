@@ -17,7 +17,7 @@ class SettingsSubscriber:
             "batch_size": 4,
             "seed": 0,
             "resolution": 1024,
-            "passthrough": False,
+            "passthrough": True,
             "num_inference_steps": num_inference_steps,
             "guidance_scale": 0.0,
             "strength": 0.7,
@@ -60,9 +60,11 @@ class SettingsSubscriber:
             override = "-f" in prompt
             if override:
                 prompt = prompt.replace("-f", "").strip()
-            if self.use_safety_checker and safety_checker(prompt) == "unsafe":
-                print("Ignoring unsafe prompt:", prompt)
-                return {"safety": "unsafe"}
+            if self.use_safety_checker:
+                safety = safety_checker(prompt)
+                if safety != "safe":
+                    print(f"Ignoring prompt ({safety}):", prompt)
+                    return {"safety": "unsafe"}
             
             self.settings["prompt"] = prompt
             print("Updated prompt:", prompt)
