@@ -15,11 +15,11 @@ class SafetyChecker:
                 model="gpt-4-1106-preview",
                 messages=[{"role": "user", "content": content}],
                 temperature=0.0,
-                max_tokens=3,
+                max_tokens=5,
             )
             return response.choices[0].message.content
 
-        content = f'You are a content moderation AI that determines whether user input is safe or NSFW. User input will be used to control a text-to-image generator. For any input that involves nudity, sexuality, violence, or gore, reply "unsafe". For everything else, reply "safe". Evaluate this input: "{prompt}".'
+        content = f'You are a content moderation AI that determines whether user input is appropriate. User input will be used to control a text-to-image generator. For any input that references explicit nudity, sexuality, violence, or gore, reply "unsafe". For copyrighted and tradmarked content (excluding celebrities), reply "copyrighted". For everything else, reply "safe". Evaluate this input: "{prompt}".'
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future = executor.submit(make_api_call, content)
@@ -28,5 +28,8 @@ class SafetyChecker:
             except concurrent.futures.TimeoutError:
                 return "safe"
 
-        safe = result == "safe"
-        return "safe" if safe else "unsafe"
+        if "copyrighted" in result:
+            return "copyrighted"
+        if result == "safe" or result == '"safe"':
+            return "safe"
+        return "unsafe"
