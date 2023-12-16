@@ -1,67 +1,86 @@
 # Realtime i2i for Rhizomatiks
 
-The final output is a msgpack-encoded list on port 5557 in the format [timestamp, index, jpg].
+This system takes input from an image stream (`ThreadedSequence`) or from a live camera stream (`ThreadedCamera`).
+
+The final output is a msgpack-encoded list served as ZMQ publisher on port 5557 in the format [timestamp, index, jpg].
 
 * timestamp (int) is the time in milliseconds since Unix epoch. Useful for estimating overall latency.
 * index (int) is the frame index.
 * jpg (byte buffer) is a libturbo-jpeg encoded JPG of the image.
 
-## Setup
+By default, the results are also displayed fullscreen.
 
-Example setup:
+## Machine Setup
+
+This software runs on multiple computers that are networked together.
+
+First, install Ubuntu 20.04 on a computer with an NVIDIA GPU. When rebooting, disable secure boot so that you can install the NVIDIA drivers.
+
+Open a Terminal and enable ssh access:
 
 ```
-mkdir -p data/frames && ffmpeg -i video.mp4 -vf fps=15 data/frames/%04d.jpg
+sudo apt install -y openssh-server
+mkdir -m700 ~/.ssh
+wget -qO- https://github.com/<username>.keys | head -n1 > ~/.ssh/authorized_keys
+```
+
+Replace `<username>` with your GitHub username. Then ssh into the server and continue.
+
+```
+# install curl
+sudo apt-get update
+sudo apt install -y curl
+
+# install git
+sudo apt install -y git
+
+# install NVIDIA drivers
+wget https://developer.download.nvidia.com/compute/cuda/12.3.1/local_installers/cuda_12.3.1_545.23.08_linux.run
+sudo apt remove -y --purge "*nvidia*"
+sudo apt install -y build-essential
+sudo sh cuda_12.3.1_545.23.08_linux.run # select the option to use the NVIDIA drivers with X
+rm cuda_12.3.1_545.23.08_linux.run
+```
+
+If you are running natively:
+
+```
 sudo apt install python3.10 python3.10-dev python3.10-venv libturbojpeg
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python stream-images.py --input_folder data/frames --fps 15 --port 5555 &
-python show-stream.py --port 5555 &
-python transform.py --input_port 5555 --settings_port 5556 --output_port 5557 &
-python show-stream.py --port 5557 &
-python input-publisher.py --port 8000
 ```
 
-Remove the cursor after 1 second (applied on reboot):
+If you are using Docker:
 
 ```
-sudo apt-get install unclutter
-```
+# install docker
+sudo apt-get update
+sudo apt-get install ca-certificates curl gnupg
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-# Updated
+# install NVIDIA container toolkit
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
+  && curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+    sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+    sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list \
+  && \
+    sudo apt-get update
+sudo apt-get install -y nvidia-container-toolkit
+sudo nvidia-ctk runtime configure --runtime=docker
+sudo systemctl restart docker
+sudo nvidia-ctk runtime configure --runtime=containerd
+sudo systemctl restart containerd
 
-```
-sudo bash install-worker-service.sh
-```
-
-## Shutdown and reload
-
-### Setting privileges
-
-Give the user sudo to allow shutdown from a script.
-
-```
-sudo usermod -aG sudo <username>
-```
-
-And polkit is for systemctl (and maybe shutdown too? Not sure).
-
-```
-bash install-polkit.sh
-```
-
-Make sure to copy the ssh keys with ssh-keygen and ssh-copy-id.
-
-### Setting Keyboard shortcuts
-
-Add a keyboard shortcut pointing to "/home/rzm/Documents/i2i-realtime/./shutdown.sh"
-
-Add another keyboard shortcut pointing to "/home/rzm/Documents/i2i-realtime/./reload.sh"
-
-### Disable updates and notifications
-
-```
+# disable updates and notifications
 gsettings set org.gnome.desktop.notifications show-banners false
 sudo systemctl disable --now apt-daily{{,-upgrade}.service,{,-upgrade}.timer}
 sudo systemctl disable --now unattended-upgrades
@@ -70,36 +89,71 @@ sudo systemctl stop unattended-upgrades
 sudo systemctl mask unattended-upgrades
 ```
 
-## `stream-images.py`
+## Useful commands
 
-Reads a folder from disk and streams it over the specified port at the specified fps.
+Remove the cursor after 1 second (applied on reboot):
 
-By default, loads from ../frames at 15 fps to port 5555.
+```
+sudo apt-get install unclutter
+```
 
-Does not encode or decode image files, just sends the image file buffer.
+Generate frames of images from a video:
 
-Also runs the settings server on port 5556, and batches the requests before they are sent to workers.
+```
+mkdir -p data/frames && ffmpeg -i video.mp4 -vf fps=30 data/frames/%06d.jpg
+```
 
-## `transform.py`
+## Running manually
 
-Transforms the images received on port 5555 and returns them on port 5558.
+The code has two parts: the server and the worker.
 
-Images are received in batches, as msgpack-packed dicts with the keys: timestamp, index, frames, indices.
+To run the worker, enable the virtual env and run the worker:
 
-frames and indices are lists. frames may contain jpg images, or paths to jpg images.
+```
+source .venv/bin/activate
+python transform.py
+```
 
-This script may run on multiple PCs, if you add the `--primary_hostname` parameter so it can connect to the primary server that is running `stream-images.py`.
+To run the server, do the same:
 
-## `collector.py`
+```
+source .venv/bin/activate
+python app.py
+```
 
-Receives all the results on port 5558 and publishes them on port 5557.
+Both the worker and server have flags that can be configured at the command line. There are also some flags that can be controlled using the .env file, with examples shown in .env.example. For example, when running the worker on a different computer from the server, you should specify the `--primary_hostname` of the server, or set that hostname in the .env so that the worker can communicate with the server.
 
-## `show-stream.py`
+If you have enabled prompt translation or safety checking, you will need to provide an OpenAI API key and a Google Service Account JSON file.
 
-Displays the JPEG output streaming to port 5557.
+## Running automatically
 
-## `input-publisher.py`
+To run the app automatically on boot, and to recover automatically from crashes, install systemd services.
 
-Streams keyboard input to the transform.py Settings subscriber app on port 5556.
+Before doing this, make sure that the user has access to controlling systemctl, and for controlling shutdown:
 
-Chat-style commands: plain text or `/prompt` to update the prompt, and `/seed 123` to set the seed, etc.
+```
+bash install-polkit.sh
+sudo usermod -aG sudo <username>
+```
+
+Copy ssh keys from your server to all the workers so that they can be shutdown automatically over ssh (use `ssh-copy-id`).
+
+```
+bash install-worker-service.sh # install on all workers
+bash install-server-service.sh # install on server only
+```
+
+To make it easy to adminster the installation, add a [custom keyboard shortcut](https://help.ubuntu.com/stable/ubuntu-help/keyboard-shortcuts-set.html.en).
+
+* Add a shortcut for `Alt+Q` pointing to the absolute path of `shutdown.sh`. This will stop the app and all worker services and shutdown the server and all workers.
+* Add a shortcut for `Alt+R` pointing to the absolute path of `reload.sh`. This will reload the app and all worker services.
+
+## Controlling the parameters in realtime
+
+The server exposes some parameters over FastAPI on port 5556.
+
+A text-based controller example is available by running `input-publisher.py`. This streams keyboard input to the server.
+
+Use chat-style commands: plain text or `/prompt` to update the prompt, and `/seed 123` to set the seed, etc.
+
+Other useful commands include `/passthrough True` or `/passthrough False`.
