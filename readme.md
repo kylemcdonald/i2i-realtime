@@ -40,6 +40,13 @@ sudo apt remove -y --purge "*nvidia*"
 sudo apt install -y build-essential
 sudo sh cuda_12.3.1_545.23.08_linux.run # select the option to use the NVIDIA drivers with X
 rm cuda_12.3.1_545.23.08_linux.run
+
+# install CuDNN
+# download from https://developer.nvidia.com/rdp/cudnn-download
+sudo dpkg -i cudnn-local-repo-ubuntu2004-8.9.7.29_1.0-1_amd64.deb
+sudo cp /var/cudnn-local-repo-ubuntu2004-8.9.7.29/cudnn-local-30472A84-keyring.gpg /usr/share/keyrings/
+sudo apt-get update
+sudo apt-get install libcudnn8
 ```
 
 If you are running natively:
