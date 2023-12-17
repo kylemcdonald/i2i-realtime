@@ -32,6 +32,9 @@ class ReorderingReceiver(ThreadedWorker):
                 print(f"dropping {key} latency: {int(1000*latency)}ms")
                 del self.msg_buffer[key]
                 continue
+            
+        if len(self.msg_buffer) > 100:
+            print(f"reordering buffer size: {len(self.msg_buffer)}")
 
         index = unpacked["index"]
         worker_id = unpacked["worker_id"]

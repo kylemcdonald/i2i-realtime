@@ -4,6 +4,7 @@ import argparse
 import os
 import re
 import msgpack
+import psutil
 from threaded_worker import ThreadedWorker
 
 from settings_subscriber import SettingsSubscriber
@@ -69,8 +70,12 @@ if args.mode == "video":
     video.play()
 
 try:
+    process = psutil.Process(os.getpid())
     while True:
-        time.sleep(1)
+        memory_usage_bytes = process.memory_info().rss
+        memory_usage_gb = memory_usage_bytes / (1024 ** 3)
+        if memory_usage_gb > 10:
+            print(f"memory usage: {memory_usage_gb:.2f}GB")
 except KeyboardInterrupt:
     pass
 
