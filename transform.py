@@ -58,18 +58,20 @@ from threaded_worker import ThreadedWorker
 base_model = "stabilityai/sdxl-turbo"
 vae_model = "madebyollin/taesdxl"
 
+local_files_only = os.environ["LOCAL_FILES_ONLY"] == "TRUE"
+
 disable_progress_bar()
 pipe = AutoPipelineForImage2Image.from_pretrained(
     base_model,
     torch_dtype=torch.float16,
     variant="fp16",
-    local_files_only=os.environ["LOCAL_FILES_ONLY"]
+    local_files_only=local_files_only
 )
 
 pipe.vae = AutoencoderTiny.from_pretrained(
     vae_model,
     torch_dtype=torch.float16,
-    local_files_only=os.environ["LOCAL_FILES_ONLY"])
+    local_files_only=local_files_only)
 fix_seed(pipe)
 
 print("Model loaded")
