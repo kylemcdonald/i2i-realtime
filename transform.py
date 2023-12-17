@@ -1,5 +1,8 @@
 import os
 import dotenv
+import psutil
+import os
+
 
 dotenv.load_dotenv()
 
@@ -223,7 +226,12 @@ processor.start()
 receiver.start()
 
 try:
+    process = psutil.Process(os.getpid())
     while True:
+        memory_usage_bytes = process.memory_info().rss
+        memory_usage_gb = memory_usage_bytes / (1024 ** 3)
+        if memory_usage_gb > 10:
+            print(f"memory usage: {memory_usage_gb:.2f}GB")
         time.sleep(1)
 except KeyboardInterrupt:
     pass
