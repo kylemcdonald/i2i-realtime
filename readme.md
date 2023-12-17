@@ -47,6 +47,10 @@ sudo dpkg -i cudnn-local-repo-ubuntu2004-8.9.7.29_1.0-1_amd64.deb
 sudo cp /var/cudnn-local-repo-ubuntu2004-8.9.7.29/cudnn-local-30472A84-keyring.gpg /usr/share/keyrings/
 sudo apt-get update
 sudo apt-get install libcudnn8
+
+# grab source
+git clone https://github.com/kylemcdonald/i2i-realtime.git
+cd i2i-realtime
 ```
 
 If you are running natively:
