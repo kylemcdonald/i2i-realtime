@@ -22,27 +22,29 @@ class ReorderingReceiver(ThreadedWorker):
     def work(self):
         try:
             msg = self.sock.recv(flags=zmq.NOBLOCK, copy=False).bytes
-            receive_time = time.time()
             # print(int(time.time()*1000)%1000, "receiving")
         except zmq.Again:
             return
-        unpacked = msgpack.unpackb(msg)
         
-        full_round_trip = receive_time - unpacked["job_timestamp"]
-        print(f"full_round_trip: {int(1000*full_round_trip)}ms")
+        receive_time = time.time()
+        unpacked = msgpack.unpackb(msg)
         
         index = unpacked["index"]
         if index == 0:
             self.reset_buffer()
         self.msg_buffer[index] = unpacked  # start by adding to buffer
 
+        if unpacked["index"] % 30 == 0:
+            full_round_trip = receive_time - unpacked["job_timestamp"]
+            print(f"full_round_trip: {int(1000*full_round_trip)}ms")
+        
         # drop all old messages to avoid memory leak
         cur_time = time.time()
         for key in list(self.msg_buffer.keys()):
             timestamp = unpacked["job_timestamp"]
             latency = cur_time - timestamp
             if latency > 1:
-                print(f"dropping {key} latency: {int(1000*latency)}ms")
+                print(f"dropping {key} latency {int(1000*latency)}ms")
                 del self.msg_buffer[key]
                 continue
             

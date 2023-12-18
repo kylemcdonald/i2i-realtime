@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     mirror: bool = Field(default=False)
     debug: bool = Field(default=False)
     pad: bool = Field(default=False)
-    fps: int = Field(default=1)
+    fps: int = Field(default=30)
     directory: str = Field(default='data/frames')
     
     class Config:

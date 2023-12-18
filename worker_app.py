@@ -150,7 +150,7 @@ class Processor(ThreadedWorker):
             latency = time.time() - unpacked["job_timestamp"]
             duration = time.time() - start_time
             print(
-                f"Diffusion {int(duration*1000)}ms Latency {int(latency*1000)}ms",
+                f"diffusion {int(duration*1000)}ms latency {int(latency*1000)}ms",
                 flush=True,
             )
         self.batch_count += 1
@@ -196,8 +196,8 @@ class WorkerSender(ThreadedWorker):
         for index, msg in zip(indices, msgs):
             self.sock.send(msg)
         
-        duration = time.time() - unpacked["timings"][0][1]
-        print(f"processing time {int(duration*1000)}ms")
+        # duration = time.time() - unpacked["timings"][0][1]
+        # print(f"processing time {int(duration*1000)}ms")
             
         # previous = unpacked["job_timestamp"]
         # for k,v in unpacked["timings"]:
