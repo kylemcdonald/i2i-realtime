@@ -85,8 +85,7 @@ class WorkerReceiver(ThreadedWorker):
                 continue
             unpacked = msgpack.unpackb(msg)
             # print("incoming length", len(msg))
-            unpacked["timings"] = []
-            unpacked["timings"].append(("receive_start_time", receive_time))
+            
             # print("receiving", unpacked["indices"])
             
             # oldest_timestamp = min(unpacked["timestamps"])
@@ -101,7 +100,6 @@ class WorkerReceiver(ThreadedWorker):
             for frame in unpacked["frames"]:
                 img = self.jpeg.decode(frame, pixel_format=TJPF_RGB)
                 images.append(img / 255)
-            unpacked["timings"].append(("receiver_unpack_decode", time.time()))
             unpacked["frames"] = images
             return unpacked
 
@@ -130,7 +128,6 @@ class Processor(ThreadedWorker):
 
     def work(self, unpacked):
         start_time = time.time()
-        unpacked["timings"].append(("processor_start_time", start_time))
 
         images = unpacked["frames"]
         parameters = unpacked["parameters"]
@@ -141,10 +138,8 @@ class Processor(ThreadedWorker):
             if parameters["fixed_seed"] or self.generator is None:
                 self.generator = torch.manual_seed(parameters["seed"])
             results = self.diffusion(images, parameters)
-            unpacked["timings"].append(("processor_diffusion", time.time()))
 
         unpacked["frames"] = results
-        unpacked["worker_id"] = settings.worker_id
 
         if self.batch_count % 10 == 0:
             latency = time.time() - unpacked["job_timestamp"]
@@ -171,12 +166,9 @@ class WorkerSender(ThreadedWorker):
         self.jpeg = TurboJPEG()
 
     def work(self, unpacked):
-        unpacked["timings"].append(("sender_start_time", time.time()))
-
         indices = unpacked["indices"]
         results = unpacked["frames"]
         job_timestamp = unpacked["job_timestamp"]
-        worker_id = unpacked["worker_id"]
 
         msgs = []
         for index, result in zip(indices, results):
@@ -187,24 +179,14 @@ class WorkerSender(ThreadedWorker):
                     "job_timestamp": job_timestamp,
                     "index": index,
                     "jpg": jpg,
-                    "worker_id": worker_id,
+                    "worker_id": settings.worker_id,
                 }
             )
             msgs.append(msg)
-        unpacked["timings"].append(("sender_msgpack_encode", time.time()))
             
         for index, msg in zip(indices, msgs):
             self.sock.send(msg)
         
-        # duration = time.time() - unpacked["timings"][0][1]
-        # print(f"processing time {int(duration*1000)}ms")
-            
-        # previous = unpacked["job_timestamp"]
-        # for k,v in unpacked["timings"]:
-        #     duration = v - previous
-        #     print(f"{k}: {int(duration*1000)}ms")
-        #     previous = v
-
     def cleanup(self):
         print("WorkerSender push close")
         self.sock.close()
