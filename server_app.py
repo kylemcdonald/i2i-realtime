@@ -79,7 +79,7 @@ reordering_receiver.close()
 
 # close sending end
 controller.close()
-settings.close()
+settings_api.close()
 sender.close()
 batcher.close()
 video.close()

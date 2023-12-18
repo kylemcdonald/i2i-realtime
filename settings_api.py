@@ -64,6 +64,12 @@ class SettingsAPI:
             print("Updated directory status:", self.settings.directory)
             return {"status": "updated"}
         
+        @app.get("/debug/{status}")
+        async def debug(status: bool):
+            self.settings.debug = status
+            print("Updated debug status:", status)
+            return {"status": "updated"}
+        
         @app.get("/passthrough/{status}")
         async def passthrough(status: bool):
             self.settings.passthrough = status

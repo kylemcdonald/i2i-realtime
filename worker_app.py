@@ -131,7 +131,7 @@ class Processor(ThreadedWorker):
             results = self.diffusion(images, parameters)
 
         unpacked["frames"] = results
-        unpacked["worker_id"] = settings.worked_id
+        unpacked["worker_id"] = settings.worker_id
 
         if self.batch_count % 10 == 0:
             latency = time.time() - min(unpacked["timestamps"])
@@ -189,10 +189,11 @@ sender = Sender(settings.primary_hostname, settings.job_finish_port).feed(proces
 
 # warmup
 if settings.warmup:
-    warmup_shape = tuple(map(int, settings.warmup.split("x")))
+    warmup_shape = [settings.batch_size, *map(int, settings.warmup.split("x"))]
+    shape_str = "x".join(map(str, warmup_shape))
     images = np.zeros(warmup_shape, dtype=np.float32)
     for i in range(2):
-        print(f"Warmup {settings.warmup} {i+1}/2")
+        print(f"Warmup {shape_str} {i+1}/2")
         start_time = time.time()
         processor.diffusion(
             images, {"prompt": "warmup", "num_inference_steps": 2, "strength": 1.0}
