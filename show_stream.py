@@ -7,7 +7,7 @@ import time
 from threaded_worker import ThreadedWorker
 
 class ShowStream(ThreadedWorker):
-    def __init__(self, port, windowed, mirror=False, debug=False, right_padded=False):
+    def __init__(self, port, settings):
         super().__init__(has_input=False, has_output=False)
         self.jpeg = TurboJPEG()
         self.context = zmq.Context()
@@ -16,10 +16,8 @@ class ShowStream(ThreadedWorker):
         print(f"Connecting to {address}")
         self.img_subscriber.connect(address)
         self.img_subscriber.setsockopt(zmq.SUBSCRIBE, b"")
-        self.fullscreen = not windowed
-        self.mirror = mirror
-        self.debug = debug
-        self.right_padded = right_padded
+        self.fullscreen = True
+        self.settings = settings
         self.window_name = f"Port {port}"
         
     def setup(self):
@@ -34,15 +32,15 @@ class ShowStream(ThreadedWorker):
         img = self.jpeg.decode(jpg, pixel_format=TJPF_RGB)
         input_h, input_w = img.shape[:2]
 
-        if self.mirror:
+        if self.settings.mirror:
             img = img[:,::-1,:]
             
-        if self.right_padded:
+        if self.settings.pad:
             canvas = np.zeros((1024, 1280, 3), dtype=np.uint8)
             canvas[:, :1024] = img
             img = canvas
         
-        if self.debug:
+        if self.settings.debug:
             latency = time.time() - timestamp
             text = f"{input_w}x{input_h} @ {int(1000*latency)} ms"
             cv2.putText(

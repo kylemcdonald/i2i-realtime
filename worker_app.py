@@ -1,36 +1,11 @@
+from settings import Settings
+
+settings = Settings()
+
+print(f"Starting worker #{settings.worker_id}")
+
 import os
-import dotenv
 import psutil
-import os
-
-
-dotenv.load_dotenv()
-
-worker_id = os.environ["WORKER_ID"]
-print(f"Starting worker #{worker_id}")
-
-import argparse
-
-parser = argparse.ArgumentParser()
-parser.add_argument(
-    "--primary_hostname", type=str, default="0.0.0.0", help="Hostname of primary server"
-)
-parser.add_argument("--input_port", type=int, default=5555, help="Input port")
-parser.add_argument("--warmup", type=str, help="Warmup batch size and resolution e.g. 4x576x1024x3")
-parser.add_argument("--output_port", type=int, default=5558, help="Output port")
-args = parser.parse_args()
-
-try:
-    args.primary_hostname = os.environ["PRIMARY_HOSTNAME"]
-except KeyError:
-    pass
-
-try:
-    args.warmup = os.environ["WARMUP"]
-except KeyError:
-    pass
-
-
 import zmq
 import msgpack
 import numpy as np
@@ -58,20 +33,17 @@ from threaded_worker import ThreadedWorker
 base_model = "stabilityai/sdxl-turbo"
 vae_model = "madebyollin/taesdxl"
 
-local_files_only = os.environ["LOCAL_FILES_ONLY"] == "TRUE"
-
 disable_progress_bar()
 pipe = AutoPipelineForImage2Image.from_pretrained(
     base_model,
     torch_dtype=torch.float16,
     variant="fp16",
-    local_files_only=local_files_only
+    local_files_only=settings.local_files_only,
 )
 
 pipe.vae = AutoencoderTiny.from_pretrained(
-    vae_model,
-    torch_dtype=torch.float16,
-    local_files_only=local_files_only)
+    vae_model, torch_dtype=torch.float16, local_files_only=settings.local_files_only
+)
 fix_seed(pipe)
 
 print("Model loaded")
@@ -89,6 +61,7 @@ pipe.set_progress_bar_config(disable=True)
 
 print("Model moved to GPU", flush=True)
 
+
 class Receiver(ThreadedWorker):
     def __init__(self, hostname, port):
         super().__init__(has_input=False)
@@ -96,7 +69,7 @@ class Receiver(ThreadedWorker):
         self.pull = self.context.socket(zmq.PULL)
         address = f"tcp://{hostname}:{port}"
         print(f"Receiver connecting to {address}")
-        self.pull.connect(address) 
+        self.pull.connect(address)
         self.jpeg = TurboJPEG()
 
     def work(self):
@@ -107,17 +80,17 @@ class Receiver(ThreadedWorker):
                 time.sleep(0.1)
                 continue
             unpacked = msgpack.unpackb(msg)
+            print("receiving", unpacked["indices"])
             oldest_timestamp = min(unpacked["timestamps"])
-            latency = time.time() - oldest_timestamp
-            if latency > 0.5:
+            # latency = time.time() - oldest_timestamp
+            # if latency > 0.5:
                 # print(f"{int(latency)}ms dropping old frames")
-                continue
+                # continue
             # print(f"{int(latency)}ms received {unpacked['indices']}")
-            settings = unpacked["settings"]
+            parameters = unpacked["parameters"]
             images = []
             for frame in unpacked["frames"]:
                 img = self.jpeg.decode(frame, pixel_format=TJPF_RGB)
-                img = imresize(img, max_side=settings["resolution"])
                 images.append(img / 255)
             unpacked["frames"] = images
             return unpacked
@@ -132,38 +105,41 @@ class Processor(ThreadedWorker):
         super().__init__()
         self.generator = None
         self.batch_count = 0
-        
-    def diffusion(self, images, settings):
+
+    def diffusion(self, images, parameters):
         return pipe(
-                prompt=[settings["prompt"]] * len(images),
-                image=images,
-                generator=self.generator,
-                num_inference_steps=settings["num_inference_steps"],
-                guidance_scale=settings["guidance_scale"],
-                strength=settings["strength"],
-                output_type="np",
-            ).images
-        
+            prompt=[parameters["prompt"]] * len(images),
+            image=images,
+            generator=self.generator,
+            num_inference_steps=parameters["num_inference_steps"],
+            guidance_scale=0,
+            strength=parameters["strength"],
+            output_type="np",
+        ).images
+
     def work(self, unpacked):
         start_time = time.time()
 
         images = unpacked["frames"]
-        settings = unpacked["settings"]
+        parameters = unpacked["parameters"]
 
-        if settings["passthrough"]:
+        if parameters["passthrough"]:
             results = images
         else:
-            if settings["fixed_seed"] or self.generator is None:
-                self.generator = torch.manual_seed(settings["seed"])
-            results = self.diffusion(images, settings)
+            if parameters["fixed_seed"] or self.generator is None:
+                self.generator = torch.manual_seed(parameters["seed"])
+            results = self.diffusion(images, parameters)
 
         unpacked["frames"] = results
-        unpacked["worker_id"] = worker_id
+        unpacked["worker_id"] = settings.worked_id
 
         if self.batch_count % 10 == 0:
             latency = time.time() - min(unpacked["timestamps"])
             duration = time.time() - start_time
-            print(f"Diffusion {int(duration*1000)}ms Latency {int(latency*1000)}ms", flush=True)
+            print(
+                f"Diffusion {int(duration*1000)}ms Latency {int(latency*1000)}ms",
+                flush=True,
+            )
         self.batch_count += 1
 
         return unpacked
@@ -199,6 +175,7 @@ class Sender(ThreadedWorker):
             )
 
             self.push.send(msg)
+            print("sending", index)
 
     def cleanup(self):
         self.push.close()
@@ -206,18 +183,20 @@ class Sender(ThreadedWorker):
 
 
 # create from beginning to end
-receiver = Receiver(args.primary_hostname, args.input_port)
+receiver = Receiver(settings.primary_hostname, settings.job_start_port)
 processor = Processor().feed(receiver)
-sender = Sender(args.primary_hostname, args.output_port).feed(processor)
+sender = Sender(settings.primary_hostname, settings.job_finish_port).feed(processor)
 
 # warmup
-if args.warmup:
-    warmup_shape = tuple(map(int, args.warmup.split("x")))
+if settings.warmup:
+    warmup_shape = tuple(map(int, settings.warmup.split("x")))
     images = np.zeros(warmup_shape, dtype=np.float32)
     for i in range(2):
-        print(f"Warmup {args.warmup} {i+1}/2")
+        print(f"Warmup {settings.warmup} {i+1}/2")
         start_time = time.time()
-        processor.diffusion(images, {"prompt": "warmup", "num_inference_steps": 2, "strength": 1.0, "guidance_scale": 0.0})
+        processor.diffusion(
+            images, {"prompt": "warmup", "num_inference_steps": 2, "strength": 1.0}
+        )
     print("Warmup finished", flush=True)
 
 # start from end to beginning
@@ -229,7 +208,7 @@ try:
     process = psutil.Process(os.getpid())
     while True:
         memory_usage_bytes = process.memory_info().rss
-        memory_usage_gb = memory_usage_bytes / (1024 ** 3)
+        memory_usage_gb = memory_usage_bytes / (1024**3)
         if memory_usage_gb > 10:
             print(f"memory usage: {memory_usage_gb:.2f}GB")
         time.sleep(1)

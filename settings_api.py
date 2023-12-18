@@ -8,34 +8,22 @@ import json
 from safety_checker import SafetyChecker
 from translate import Translate
 
-class SettingsSubscriber:
-    def __init__(self, port, use_translation, use_safety_checker, num_inference_steps):
-        self.shutdown = False
-        self.settings = {
-            "directory": "data/bg",
-            "fixed_seed": True,
-            "batch_size": 4,
-            "seed": 0,
-            "resolution": 1024,
-            "passthrough": False,
-            "num_inference_steps": num_inference_steps,
-            "guidance_scale": 0.0,
-            "strength": 0.7,
-            "prompt": "A psychedelic landscape."
-        }
-        print(json.dumps(self.settings, indent=2))
-        self.use_translation = use_translation
-        self.use_safety_checker = use_safety_checker
-        self.thread = threading.Thread(target=self.run, args=(port,))
-        self.thread.start()
 
-    def __getitem__(self, key):
-        return self.settings[key]
+class SettingsAPI:
+    def __init__(self, settings):
+        self.shutdown = False
+        self.settings = settings
+        port = settings.settings_port
+        self.thread = threading.Thread(target=self.run, args=(port,))
+        
+    def start(self):
+        if not self.thread.is_alive():
+            self.thread.start()
 
     def run(self, port):
-        if self.use_translation:
+        if self.settings.translation:
             translate = Translate()
-        if self.use_safety_checker:
+        if self.settings.safety:
             safety_checker = SafetyChecker()
 
         app = FastAPI()
@@ -50,7 +38,7 @@ class SettingsSubscriber:
 
         @app.get("/prompt/{msg}")
         async def prompt(msg: str):
-            if self.use_translation:
+            if self.settings.translation:
                 prompt = translate.translate_to_en(msg)
                 if prompt != msg:
                     print("Translating from:", msg)
@@ -60,68 +48,56 @@ class SettingsSubscriber:
             override = "-f" in prompt
             if override:
                 prompt = prompt.replace("-f", "").strip()
-            if self.use_safety_checker:
+            if self.settings.safety and not override:
                 safety = safety_checker(prompt)
                 if safety != "safe":
                     print(f"Ignoring prompt ({safety}):", prompt)
                     return {"safety": "unsafe"}
             
-            self.settings["prompt"] = prompt
+            self.settings.prompt = prompt
             print("Updated prompt:", prompt)
             return {"safety": "safe"}
 
         @app.get("/directory/{status}")
         async def directory(status: str):
-            self.settings["directory"] = "data/" + status
-            print("Updated directory status:", self.settings["directory"])
+            self.settings.directory = "data/" + status
+            print("Updated directory status:", self.settings.directory)
             return {"status": "updated"}
         
         @app.get("/passthrough/{status}")
         async def passthrough(status: bool):
-            self.settings["passthrough"] = status
-            print("Updated passthrough status:", self.settings["passthrough"])
+            self.settings.passthrough = status
+            print("Updated passthrough status:", self.settings.passthrough)
             return {"status": "updated"}
 
         @app.get("/fixed_seed/{status}")
         async def fixed_seed(status: bool):
-            self.settings["fixed_seed"] = status
-            print("Updated fixed_seed status:", self.settings["fixed_seed"])
-            return {"status": "updated"}
-
-        @app.get("/resolution/{value}")
-        async def resolution(value: int):
-            self.settings["resolution"] = value
-            print("Updated resolution:", self.settings["resolution"])
+            self.settings.fixed_seed = status
+            print("Updated fixed_seed status:", self.settings.fixed_seed)
             return {"status": "updated"}
 
         @app.get("/batch_size/{value}")
         async def batch_size(value: int):
-            self.settings["batch_size"] = value
-            print("Updated batch_size:", self.settings["batch_size"])
+            self.settings.batch_size = value
+            print("Updated batch_size:", self.settings.batch_size)
             return {"status": "updated"}
 
         @app.get("/seed/{value}")
         async def seed(value: int):
-            self.settings["seed"] = value
-            print("Updated seed:", self.settings["seed"])
+            self.settings.seed = value
+            print("Updated seed:", self.settings.seed)
             return {"status": "updated"}
 
         @app.get("/steps/{value}")
         async def steps(value: int):
-            self.settings["num_inference_steps"] = value
-            print("Updated num_inference_steps:", self.settings["num_inference_steps"])
-            return {"status": "updated"}
-
-        @app.get("/guidance/{value}")
-        async def guidance(value: float):
-            self.settings["guidance_scale"] = value
-            print("Updated guidance_scale:", self.settings["guidance_scale"])
+            self.settings.num_inference_steps = value
+            print("Updated num_inference_steps:", self.settings.num_inference_steps)
             return {"status": "updated"}
 
         @app.get("/strength/{value}")
         async def strength(value: float):
-            self.settings["strength"] = value
-            print("Updated strength:", self.settings["strength"])
+            self.settings.strength = value
+            print("Updated strength:", self.settings.strength)
             return {"status": "updated"}
 
         config = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="info")

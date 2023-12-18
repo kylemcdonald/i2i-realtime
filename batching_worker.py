@@ -10,7 +10,7 @@ class BatchingWorker(ThreadedWorker):
         
     def work(self, input):
         self.batch.append(input)
-        n = self.settings["batch_size"]
+        n = self.settings.batch_size
         if len(self.batch) >= n:
             batch = self.batch[:n]
             self.batch = self.batch[n:]

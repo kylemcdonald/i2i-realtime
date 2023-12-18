@@ -2,9 +2,9 @@ from threaded_worker import ThreadedWorker
 from osc_socket import OscSocket
 
 class OscVideoController(ThreadedWorker):
-    def __init__(self, video, host, port):
+    def __init__(self, video, settings):
         super().__init__(has_input=False, has_output=False)
-        self.osc = OscSocket(host, port)
+        self.osc = OscSocket("0.0.0.0", settings.osc_port)
         self.video = video
         
     def work(self):

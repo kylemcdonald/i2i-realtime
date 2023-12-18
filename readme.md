@@ -111,6 +111,7 @@ sudo apt-get install unclutter
 Generate frames of images from a video:
 
 ```
+sudo apt install -y ffmpeg
 mkdir -p data/frames && ffmpeg -i video.mp4 -vf fps=30 data/frames/%06d.jpg
 ```
 
