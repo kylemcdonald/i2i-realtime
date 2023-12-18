@@ -23,7 +23,7 @@ class ReorderingReceiver(ThreadedWorker):
         try:
             msg = self.sock.recv(flags=zmq.NOBLOCK, copy=False).bytes
             receive_time = time.time()
-            print(int(time.time()*1000)%1000, "receiving")
+            # print(int(time.time()*1000)%1000, "receiving")
         except zmq.Again:
             return
         unpacked = msgpack.unpackb(msg)

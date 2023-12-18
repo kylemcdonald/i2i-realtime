@@ -80,7 +80,7 @@ class WorkerReceiver(ThreadedWorker):
             try:
                 msg = self.sock.recv(flags=zmq.NOBLOCK, copy=False).bytes
                 receive_time = time.time()
-                print(int(time.time()*1000)%1000, "receiving")
+                # print(int(time.time()*1000)%1000, "receiving")
             except zmq.Again:
                 continue
             unpacked = msgpack.unpackb(msg)
@@ -117,6 +117,7 @@ class Processor(ThreadedWorker):
         self.batch_count = 0
 
     def diffusion(self, images, parameters):
+        # print("images", len(images), images[0].shape)
         return pipe(
             prompt=[parameters["prompt"]] * len(images),
             image=images,
@@ -193,13 +194,12 @@ class WorkerSender(ThreadedWorker):
         unpacked["timings"].append(("sender_msgpack_encode", time.time()))
             
         for index, msg in zip(indices, msgs):
-            frame = zmq.Frame(msg)
-            self.sock.send(frame, copy=False)
-            print("sending", index)
+            self.sock.send(msg)
+        
+        duration = time.time() - unpacked["timings"][0][1]
+        print(f"processing time {int(duration*1000)}ms")
             
-        print(int(time.time()*1000)%1000, "sending")
-            
-        previous = unpacked["job_timestamp"]
+        # previous = unpacked["job_timestamp"]
         # for k,v in unpacked["timings"]:
         #     duration = v - previous
         #     print(f"{k}: {int(duration*1000)}ms")

@@ -33,9 +33,9 @@ class ZmqSender(ThreadedWorker):
                 },
             }
         )
-        frame = zmq.Frame(packed)
-        self.sock.send(frame, copy=False)
-        print(int(time.time()*1000)%1000, "sending")
+        # frame = zmq.Frame(packed)
+        self.sock.send(packed)
+        # print(int(time.time()*1000)%1000, "sending")
         # print("outgoing length", len(packed))
         # print("sending", indices)
 

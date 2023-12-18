@@ -117,13 +117,3 @@ class SettingsAPI:
         if hasattr(self, "server"):
             self.server.should_exit = True
         self.thread.join()
-
-
-if __name__ == "__main__":
-    sub = SettingsSubscriber(5556)
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        pass
-    sub.close()
