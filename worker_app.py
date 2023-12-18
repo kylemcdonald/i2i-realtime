@@ -62,13 +62,13 @@ pipe.set_progress_bar_config(disable=True)
 print("Model moved to GPU", flush=True)
 
 
-class Receiver(ThreadedWorker):
+class WorkerReceiver(ThreadedWorker):
     def __init__(self, hostname, port):
         super().__init__(has_input=False)
         self.context = zmq.Context()
         self.pull = self.context.socket(zmq.PULL)
         address = f"tcp://{hostname}:{port}"
-        print(f"Receiver connecting to {address}")
+        print(f"WorkerReceiver connecting to {address}")
         self.pull.connect(address)
         self.jpeg = TurboJPEG()
 
@@ -76,22 +76,29 @@ class Receiver(ThreadedWorker):
         while not self.should_exit:
             try:
                 msg = self.pull.recv(flags=zmq.NOBLOCK)
+                receive_time = time.time()
             except zmq.ZMQError:
                 time.sleep(0.1)
                 continue
             unpacked = msgpack.unpackb(msg)
-            print("receiving", unpacked["indices"])
-            oldest_timestamp = min(unpacked["timestamps"])
+            print("incoming length", len(msg))
+            unpacked["timings"] = []
+            unpacked["timings"].append(("receive_start_time", receive_time))
+            # print("receiving", unpacked["indices"])
+            
+            # oldest_timestamp = min(unpacked["timestamps"])
             # latency = time.time() - oldest_timestamp
             # if latency > 0.5:
                 # print(f"{int(latency)}ms dropping old frames")
                 # continue
             # print(f"{int(latency)}ms received {unpacked['indices']}")
+            
             parameters = unpacked["parameters"]
             images = []
             for frame in unpacked["frames"]:
                 img = self.jpeg.decode(frame, pixel_format=TJPF_RGB)
                 images.append(img / 255)
+            unpacked["timings"].append(("receiver_unpack_decode", time.time()))
             unpacked["frames"] = images
             return unpacked
 
@@ -119,6 +126,7 @@ class Processor(ThreadedWorker):
 
     def work(self, unpacked):
         start_time = time.time()
+        unpacked["timings"].append(("processor_start_time", start_time))
 
         images = unpacked["frames"]
         parameters = unpacked["parameters"]
@@ -129,63 +137,77 @@ class Processor(ThreadedWorker):
             if parameters["fixed_seed"] or self.generator is None:
                 self.generator = torch.manual_seed(parameters["seed"])
             results = self.diffusion(images, parameters)
+            unpacked["timings"].append(("processor_diffusion", time.time()))
 
         unpacked["frames"] = results
         unpacked["worker_id"] = settings.worker_id
 
         if self.batch_count % 10 == 0:
-            latency = time.time() - min(unpacked["timestamps"])
+            latency = time.time() - unpacked["job_timestamp"]
             duration = time.time() - start_time
             print(
                 f"Diffusion {int(duration*1000)}ms Latency {int(latency*1000)}ms",
                 flush=True,
             )
         self.batch_count += 1
-
+        
         return unpacked
 
 
-class Sender(ThreadedWorker):
+class WorkerSender(ThreadedWorker):
     def __init__(self, hostname, port):
         super().__init__(has_output=False)
         self.context = zmq.Context()
         self.push = self.context.socket(zmq.PUSH)
         address = f"tcp://{hostname}:{port}"
-        print(f"Sender connecting to {address}")
+        print(f"WorkerSender connecting to {address}")
         self.push.connect(address)
         self.jpeg = TurboJPEG()
 
     def work(self, unpacked):
+        unpacked["timings"].append(("sender_start_time", time.time()))
+
         indices = unpacked["indices"]
         results = unpacked["frames"]
-        timestamps = unpacked["timestamps"]
+        job_timestamp = unpacked["job_timestamp"]
         worker_id = unpacked["worker_id"]
 
-        for index, timestamp, result in zip(indices, timestamps, results):
+        msgs = []
+        for index, result in zip(indices, results):
             img_u8 = (result * 255).astype(np.uint8)
             jpg = self.jpeg.encode(img_u8, pixel_format=TJPF_RGB)
-
             msg = msgpack.packb(
                 {
-                    "timestamp": timestamp,
+                    "job_timestamp": job_timestamp,
                     "index": index,
                     "jpg": jpg,
                     "worker_id": worker_id,
                 }
             )
-
+            msgs.append(msg)
+        unpacked["timings"].append(("sender_msgpack_encode", time.time()))
+            
+        for index, msg in zip(indices, msgs):
             self.push.send(msg)
             print("sending", index)
+            
+        previous = unpacked["job_timestamp"]
+        for k,v in unpacked["timings"]:
+            duration = v - previous
+            print(f"{k}: {int(duration*1000)}ms")
+            previous = v
 
     def cleanup(self):
+        print("WorkerSender push close")
         self.push.close()
+        print("WorkerSender context term")
         self.context.term()
 
 
 # create from beginning to end
-receiver = Receiver(settings.primary_hostname, settings.job_start_port)
+receiver = WorkerReceiver(settings.primary_hostname, settings.job_start_port)
 processor = Processor().feed(receiver)
-sender = Sender(settings.primary_hostname, settings.job_finish_port).feed(processor)
+sender = WorkerSender(settings.primary_hostname, settings.job_finish_port).feed(processor)
 
 # warmup
 if settings.warmup:

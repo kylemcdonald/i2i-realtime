@@ -10,23 +10,33 @@ class ReorderingReceiver(ThreadedWorker):
         self.receiver = self.context.socket(zmq.PULL)
         self.receiver.bind(f"tcp://0.0.0.0:{port}")
         self.sender = sender
+        self.reset_buffer()
+        
+    def reset_buffer(self):
         self.msg_buffer = {}
         self.next_index = None
         
     def work(self):
         try:
             msg = self.receiver.recv(zmq.NOBLOCK)
+            receive_time = time.time()
         except zmq.ZMQError:
             time.sleep(0.1)
             return
         unpacked = msgpack.unpackb(msg)
+        
+        full_round_trip = receive_time - unpacked["job_timestamp"]
+        print(f"full_round_trip: {int(1000*full_round_trip)}ms")
+        
         index = unpacked["index"]
+        if index == 0:
+            self.reset_buffer()
         self.msg_buffer[index] = unpacked  # start by adding to buffer
 
         # drop all old messages to avoid memory leak
         cur_time = time.time()
         for key in list(self.msg_buffer.keys()):
-            timestamp = unpacked["timestamp"]
+            timestamp = unpacked["job_timestamp"]
             latency = cur_time - timestamp
             if latency > 1:
                 print(f"dropping {key} latency: {int(1000*latency)}ms")

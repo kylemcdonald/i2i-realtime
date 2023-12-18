@@ -13,11 +13,12 @@ class ZmqSender(ThreadedWorker):
         self.settings = settings
 
     def work(self, batch):
-        timestamps, indices, frames = zip(*batch)
+        frame_timestamps, indices, frames = zip(*batch)
         settings = self.settings
+        job_timestamp = time.time()
         packed = msgpack.packb(
             {
-                "timestamps": timestamps,
+                "job_timestamp": job_timestamp,
                 "indices": indices,
                 "frames": frames,
                 "parameters": {
@@ -31,7 +32,8 @@ class ZmqSender(ThreadedWorker):
             }
         )
         self.publisher.send(packed)
-        print("sending", indices)
+        print("outgoing length", len(packed))
+        # print("sending", indices)
 
     def cleanup(self):
         self.publisher.close()

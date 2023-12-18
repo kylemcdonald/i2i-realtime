@@ -30,18 +30,18 @@ class RemoveJitter:
             if unpacked is None:
                 break
 
-            timestamp = unpacked["timestamp"]
+            job_timestamp = unpacked["job_timestamp"]
             index = unpacked["index"]
-            worker_id = unpacked["worker_id"]
             jpg = unpacked["jpg"]
 
-            latency = time.time() - timestamp
+            # worker_id = unpacked["worker_id"]
+            # latency = time.time() - timestamp
             # print("\033[K", end="", flush=True)  # clear entire line
             # print(
             #     f"outgoing: {index} #{worker_id} {int(1000*latency)}ms, {self.queue.qsize()}q {self.delay:.01f}ms"
             # )
 
-            packed = msgpack.packb([timestamp, index, jpg])
+            packed = msgpack.packb([job_timestamp, index, jpg])
 
             self.publisher.send(packed)
             
