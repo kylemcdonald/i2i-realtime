@@ -21,6 +21,7 @@ class ZmqSender(ThreadedWorker):
         packed = msgpack.packb(
             {
                 "job_timestamp": job_timestamp,
+                "frame_timestamps": frame_timestamps,
                 "indices": indices,
                 "frames": frames,
                 "parameters": {

@@ -15,7 +15,7 @@ try:
             command = msg.split()[0][1:]
             msg = msg[len(command)+2:]
         url = f'http://127.0.0.1:{args.port}/{command}/{msg}'
-        print(url)
+        # print(url)
         response = requests.get(url)
         print(response.json())
 except KeyboardInterrupt:

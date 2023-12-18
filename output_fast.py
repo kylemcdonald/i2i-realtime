@@ -1,5 +1,6 @@
 import msgpack
 import zmq
+import time
 from threaded_worker import ThreadedWorker
 
 class OutputFast(ThreadedWorker):
@@ -17,6 +18,8 @@ class OutputFast(ThreadedWorker):
         jpg = unpacked["jpg"]
         packed = msgpack.packb([job_timestamp, index, jpg])
         self.sock.send(packed)
+        duration = time.time() - unpacked["frame_timestamp"]
+        print(f"output {int(duration*1000)}ms", flush=True)
 
     def cleanup(self):
         self.sock.close()

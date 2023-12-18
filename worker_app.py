@@ -169,14 +169,16 @@ class WorkerSender(ThreadedWorker):
         indices = unpacked["indices"]
         results = unpacked["frames"]
         job_timestamp = unpacked["job_timestamp"]
+        frame_timestamps = unpacked["frame_timestamps"]
 
         msgs = []
-        for index, result in zip(indices, results):
+        for index, frame_timestamp, result in zip(indices, frame_timestamps, results):
             img_u8 = (result * 255).astype(np.uint8)
             jpg = self.jpeg.encode(img_u8, pixel_format=TJPF_RGB)
             msg = msgpack.packb(
                 {
                     "job_timestamp": job_timestamp,
+                    "frame_timestamp": frame_timestamp,
                     "index": index,
                     "jpg": jpg,
                     "worker_id": settings.worker_id,
