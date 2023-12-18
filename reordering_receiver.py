@@ -7,8 +7,10 @@ class ReorderingReceiver(ThreadedWorker):
     def __init__(self, sender, port):
         super().__init__(has_input=False, has_output=False)
         self.context = zmq.Context()
-        self.receiver = self.context.socket(zmq.PULL)
-        self.receiver.bind(f"tcp://0.0.0.0:{port}")
+        self.sock = self.context.socket(zmq.PULL)
+        self.sock.setsockopt(zmq.RCVHWM, 1)
+        self.sock.setsockopt(zmq.LINGER, 0)
+        self.sock.bind(f"tcp://0.0.0.0:{port}")
         self.sender = sender
         self.reset_buffer()
         
@@ -18,7 +20,7 @@ class ReorderingReceiver(ThreadedWorker):
         
     def work(self):
         try:
-            msg = self.receiver.recv(zmq.NOBLOCK)
+            msg = self.sock.recv(flags=zmq.NOBLOCK, copy=False).bytes
             receive_time = time.time()
         except zmq.ZMQError:
             time.sleep(0.1)
@@ -75,5 +77,5 @@ class ReorderingReceiver(ThreadedWorker):
             self.next_index += 1
         
     def cleanup(self):
-        self.receiver.close()
+        self.sock.close()
         self.context.term()

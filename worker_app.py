@@ -66,22 +66,24 @@ class WorkerReceiver(ThreadedWorker):
     def __init__(self, hostname, port):
         super().__init__(has_input=False)
         self.context = zmq.Context()
-        self.pull = self.context.socket(zmq.PULL)
+        self.sock = self.context.socket(zmq.PULL)
+        self.sock.setsockopt(zmq.RCVHWM, 1)
+        self.sock.setsockopt(zmq.LINGER, 0)
         address = f"tcp://{hostname}:{port}"
         print(f"WorkerReceiver connecting to {address}")
-        self.pull.connect(address)
+        self.sock.connect(address)
         self.jpeg = TurboJPEG()
 
     def work(self):
         while not self.should_exit:
             try:
-                msg = self.pull.recv(flags=zmq.NOBLOCK)
+                msg = self.sock.recv(flags=zmq.NOBLOCK, copy=False).bytes
                 receive_time = time.time()
             except zmq.ZMQError:
                 time.sleep(0.1)
                 continue
             unpacked = msgpack.unpackb(msg)
-            print("incoming length", len(msg))
+            # print("incoming length", len(msg))
             unpacked["timings"] = []
             unpacked["timings"].append(("receive_start_time", receive_time))
             # print("receiving", unpacked["indices"])
@@ -103,7 +105,7 @@ class WorkerReceiver(ThreadedWorker):
             return unpacked
 
     def cleanup(self):
-        self.pull.close()
+        self.sock.close()
         self.context.term()
 
 
@@ -158,10 +160,12 @@ class WorkerSender(ThreadedWorker):
     def __init__(self, hostname, port):
         super().__init__(has_output=False)
         self.context = zmq.Context()
-        self.push = self.context.socket(zmq.PUSH)
+        self.sock = self.context.socket(zmq.PUSH)
+        self.sock.setsockopt(zmq.SNDHWM, 1)
+        self.sock.setsockopt(zmq.LINGER, 0)
         address = f"tcp://{hostname}:{port}"
         print(f"WorkerSender connecting to {address}")
-        self.push.connect(address)
+        self.sock.connect(address)
         self.jpeg = TurboJPEG()
 
     def work(self, unpacked):
@@ -188,7 +192,8 @@ class WorkerSender(ThreadedWorker):
         unpacked["timings"].append(("sender_msgpack_encode", time.time()))
             
         for index, msg in zip(indices, msgs):
-            self.push.send(msg)
+            frame = zmq.Frame(msg)
+            self.sock.send(frame, copy=False)
             print("sending", index)
             
         previous = unpacked["job_timestamp"]
@@ -199,7 +204,7 @@ class WorkerSender(ThreadedWorker):
 
     def cleanup(self):
         print("WorkerSender push close")
-        self.push.close()
+        self.sock.close()
         print("WorkerSender context term")
         self.context.term()
 

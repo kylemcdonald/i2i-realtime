@@ -8,8 +8,10 @@ class ZmqSender(ThreadedWorker):
     def __init__(self, settings):
         super().__init__(has_output=False)
         self.context = zmq.Context()
-        self.publisher = self.context.socket(zmq.PUSH)
-        self.publisher.bind(f"tcp://0.0.0.0:{settings.job_start_port}")
+        self.sock = self.context.socket(zmq.PUSH)
+        self.sock.setsockopt(zmq.SNDHWM, 1)
+        self.sock.setsockopt(zmq.LINGER, 0)
+        self.sock.bind(f"tcp://0.0.0.0:{settings.job_start_port}")
         self.settings = settings
 
     def work(self, batch):
@@ -31,10 +33,11 @@ class ZmqSender(ThreadedWorker):
                 },
             }
         )
-        self.publisher.send(packed)
-        print("outgoing length", len(packed))
+        frame = zmq.Frame(packed)
+        self.sock.send(frame, copy=False)
+        # print("outgoing length", len(packed))
         # print("sending", indices)
 
     def cleanup(self):
-        self.publisher.close()
+        self.sock.close()
         self.context.term()

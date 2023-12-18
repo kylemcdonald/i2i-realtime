@@ -43,7 +43,10 @@ class ThreadedWorker:
             while not self.should_exit:
                 if hasattr(self, "input_queue"):
                     # print(self.name, "waiting for input")
-                    input = self.input_queue.get()
+                    try:
+                        input = self.input_queue.get(timeout=0.1)
+                    except queue.Empty:
+                        continue
                     # print(self.name, "got input")
                     if input is None:
                         break

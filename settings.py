@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     num_inference_steps: int = Field(default=2)
     fixed_seed: bool = Field(default=True)
     seed: int = Field(default=0)
-    batch_size: int = Field(default=4)
+    batch_size: int = Field(default=1)
     strength: float = Field(default=0.7)
     passthrough: bool = Field(default=False)
     
@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     mirror: bool = Field(default=False)
     debug: bool = Field(default=False)
     pad: bool = Field(default=False)
-    fps: int = Field(default=30)
+    fps: int = Field(default=1)
     directory: str = Field(default='data/frames')
     
     class Config:
