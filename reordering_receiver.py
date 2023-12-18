@@ -4,15 +4,14 @@ import time
 import zmq
 
 class ReorderingReceiver(ThreadedWorker):
-    def __init__(self, sender, port):
-        super().__init__(has_input=False, has_output=False)
+    def __init__(self, port):
+        super().__init__(has_input=False)
         self.context = zmq.Context()
         self.sock = self.context.socket(zmq.PULL)
         self.sock.setsockopt(zmq.RCVTIMEO, 100)
         self.sock.setsockopt(zmq.RCVHWM, 1)
         self.sock.setsockopt(zmq.LINGER, 0)
         self.sock.bind(f"tcp://0.0.0.0:{port}")
-        self.sender = sender
         self.reset_buffer()
         
     def reset_buffer(self):
@@ -34,9 +33,10 @@ class ReorderingReceiver(ThreadedWorker):
             self.reset_buffer()
         self.msg_buffer[index] = unpacked  # start by adding to buffer
 
-        if unpacked["index"] % 30 == 0:
-            full_round_trip = receive_time - unpacked["job_timestamp"]
-            print(f"full_round_trip: {int(1000*full_round_trip)}ms")
+        if unpacked["index"] % 31 == 0: # close to 30, but prime (for logs)
+            round_trip = receive_time - unpacked["job_timestamp"]
+            worker_id = unpacked["worker_id"]
+            print(f"worker {worker_id}: {int(1000*round_trip)}ms")
         
         # drop all old messages to avoid memory leak
         cur_time = time.time()
@@ -74,8 +74,7 @@ class ReorderingReceiver(ThreadedWorker):
         # ordered mode
         while self.next_index in self.msg_buffer:
             unpacked = self.msg_buffer[self.next_index]
-            self.sender.queue.put(unpacked)
-            self.sender.start()
+            self.output_queue.put(unpacked)
             del self.msg_buffer[self.next_index]
             self.next_index += 1
         

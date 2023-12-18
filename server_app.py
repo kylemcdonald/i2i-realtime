@@ -6,11 +6,13 @@ from settings import Settings
 from settings_api import SettingsAPI
 from threaded_sequence import ThreadedSequence
 from threaded_camera import ThreadedCamera
+from threaded_zmq_video import ThreadedZmqVideo
 from batching_worker import BatchingWorker
 from zmq_sender import ZmqSender
 from osc_video_controller import OscVideoController
 from osc_settings_controller import OscSettingsController
-from remove_jitter import RemoveJitter
+from output_smooth import OutputSmooth
+from output_fast import OutputFast
 from reordering_receiver import ReorderingReceiver
 from show_stream import ShowStream
 
@@ -27,12 +29,18 @@ if settings.mode == "video":
 elif settings.mode == "camera":
     video = ThreadedCamera()
     controller = OscSettingsController(settings)
+elif settings.mode == "zmq":
+    video = ThreadedZmqVideo(settings)
+    controller = None
 batcher = BatchingWorker(settings).feed(video)
 sender = ZmqSender(settings).feed(batcher)
 
 # create receiving end
-remove_jitter = RemoveJitter(settings.output_port)
-reordering_receiver = ReorderingReceiver(remove_jitter, settings.job_finish_port)
+reordering_receiver = ReorderingReceiver(settings.job_finish_port)
+if settings.output_fast:
+    output = OutputFast(settings.output_port).feed(reordering_receiver)
+else:
+    output = OutputSmooth(settings.output_port).feed(reordering_receiver)
 
 # create display end
 show_stream = ShowStream(settings.output_port, settings)
@@ -45,10 +53,11 @@ show_stream.start()
 # start receiving end
 settings_api.start()
 reordering_receiver.start()
-remove_jitter.start()
+output.start()
 
 # start sending end
-controller.start()
+if controller:
+    controller.start()
 sender.start()
 batcher.start()
 video.start()
@@ -74,11 +83,12 @@ print()
 show_stream.close()
 
 # close receiving end
-remove_jitter.stop()
+output.close()
 reordering_receiver.close()
 
 # close sending end
-controller.close()
+if controller:
+    controller.close()
 settings_api.close()
 sender.close()
 batcher.close()

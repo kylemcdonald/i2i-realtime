@@ -5,6 +5,8 @@ class Settings(BaseSettings):
     mode: str
     worker_id: int
     
+    output_fast: bool = Field(default=True)
+    zmq_video_port: int = Field(default=5554)
     job_start_port: int = Field(default=5555)
     settings_port: int = Field(default=5556)
     job_finish_port: int = Field(default=5557)

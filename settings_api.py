@@ -81,6 +81,12 @@ class SettingsAPI:
             self.settings.fixed_seed = status
             print("Updated fixed_seed status:", self.settings.fixed_seed)
             return {"status": "updated"}
+        
+        @app.get("/mirror/{status}")
+        async def mirror(status: bool):
+            self.settings.mirror = status
+            print("Updated mirror status:", status)
+            return {"status": "updated"}
 
         @app.get("/batch_size/{value}")
         async def batch_size(value: int):
