@@ -67,6 +67,7 @@ class WorkerReceiver(ThreadedWorker):
         super().__init__(has_input=False)
         self.context = zmq.Context()
         self.sock = self.context.socket(zmq.PULL)
+        self.sock.setsockopt(zmq.RCVTIMEO, 100)
         self.sock.setsockopt(zmq.RCVHWM, 1)
         self.sock.setsockopt(zmq.LINGER, 0)
         address = f"tcp://{hostname}:{port}"
@@ -79,8 +80,8 @@ class WorkerReceiver(ThreadedWorker):
             try:
                 msg = self.sock.recv(flags=zmq.NOBLOCK, copy=False).bytes
                 receive_time = time.time()
-            except zmq.ZMQError:
-                time.sleep(0.1)
+                print(int(time.time()*1000)%1000, "receiving")
+            except zmq.Again:
                 continue
             unpacked = msgpack.unpackb(msg)
             # print("incoming length", len(msg))
@@ -196,11 +197,13 @@ class WorkerSender(ThreadedWorker):
             self.sock.send(frame, copy=False)
             print("sending", index)
             
+        print(int(time.time()*1000)%1000, "sending")
+            
         previous = unpacked["job_timestamp"]
-        for k,v in unpacked["timings"]:
-            duration = v - previous
-            print(f"{k}: {int(duration*1000)}ms")
-            previous = v
+        # for k,v in unpacked["timings"]:
+        #     duration = v - previous
+        #     print(f"{k}: {int(duration*1000)}ms")
+        #     previous = v
 
     def cleanup(self):
         print("WorkerSender push close")

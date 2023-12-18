@@ -8,6 +8,7 @@ class ReorderingReceiver(ThreadedWorker):
         super().__init__(has_input=False, has_output=False)
         self.context = zmq.Context()
         self.sock = self.context.socket(zmq.PULL)
+        self.sock.setsockopt(zmq.RCVTIMEO, 100)
         self.sock.setsockopt(zmq.RCVHWM, 1)
         self.sock.setsockopt(zmq.LINGER, 0)
         self.sock.bind(f"tcp://0.0.0.0:{port}")
@@ -22,8 +23,8 @@ class ReorderingReceiver(ThreadedWorker):
         try:
             msg = self.sock.recv(flags=zmq.NOBLOCK, copy=False).bytes
             receive_time = time.time()
-        except zmq.ZMQError:
-            time.sleep(0.1)
+            print(int(time.time()*1000)%1000, "receiving")
+        except zmq.Again:
             return
         unpacked = msgpack.unpackb(msg)
         
