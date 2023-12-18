@@ -147,21 +147,13 @@ bash install-polkit.sh
 sudo usermod -aG sudo <username>
 ```
 
-And polkit is for systemctl (and maybe shutdown too? Not sure).
-
-```
-bash install-polkit.sh
-```
-
-Make sure to copy the ssh keys with ssh-keygen and ssh-copy-id.
-
 ### Setting Keyboard shortcuts
 
 Add a keyboard shortcut pointing to "/home/rzm/Documents/i2i-realtime/./shutdown.sh"
 
 Add another keyboard shortcut pointing to "/home/rzm/Documents/i2i-realtime/./reload.sh"
 
-Copy ssh keys from your server to all the workers so that they can be shutdown automatically over ssh (use `ssh-copy-id`).
+Copy ssh keys from your server to all the workers so that they can be shutdown automatically over ssh (use the script in `automation/ssh-copy-ids.sh`).
 
 ```
 bash install-worker-service.sh # install on all workers
