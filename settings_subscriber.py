@@ -17,7 +17,7 @@ class SettingsSubscriber:
             "batch_size": 4,
             "seed": 0,
             "resolution": 1024,
-            "passthrough": True,
+            "passthrough": False,
             "num_inference_steps": num_inference_steps,
             "guidance_scale": 0.0,
             "strength": 0.7,

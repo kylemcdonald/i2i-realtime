@@ -17,7 +17,7 @@ class ReorderingReceiver(ThreadedWorker):
         try:
             msg = self.receiver.recv(zmq.NOBLOCK)
         except zmq.ZMQError:
-            time.sleep(0.1)
+            time.sleep(0.001)
             return
         unpacked = msgpack.unpackb(msg)
         index = unpacked["index"]

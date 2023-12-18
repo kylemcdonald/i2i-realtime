@@ -104,7 +104,7 @@ class Receiver(ThreadedWorker):
             try:
                 msg = self.pull.recv(flags=zmq.NOBLOCK)
             except zmq.ZMQError:
-                time.sleep(0.1)
+                time.sleep(0.001)
                 continue
             unpacked = msgpack.unpackb(msg)
             oldest_timestamp = min(unpacked["timestamps"])
