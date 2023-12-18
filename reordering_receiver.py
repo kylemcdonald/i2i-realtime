@@ -36,7 +36,7 @@ class ReorderingReceiver(ThreadedWorker):
         if unpacked["index"] % 31 == 0: # close to 30, but prime (for logs)
             round_trip = receive_time - unpacked["job_timestamp"]
             worker_id = unpacked["worker_id"]
-            print(f"worker {worker_id}: {int(1000*round_trip)}ms")
+            print(f"worker {worker_id} round trip: {int(1000*round_trip)}ms")
         
         # drop all old messages to avoid memory leak
         cur_time = time.time()

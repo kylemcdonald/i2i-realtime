@@ -19,7 +19,8 @@ class OutputFast(ThreadedWorker):
         packed = msgpack.packb([job_timestamp, index, jpg])
         self.sock.send(packed)
         duration = time.time() - unpacked["frame_timestamp"]
-        print(f"output {int(duration*1000)}ms", flush=True)
+        if index % 31 == 0:
+            print(f"full loop {int(duration*1000)}ms", flush=True)
 
     def cleanup(self):
         self.sock.close()
