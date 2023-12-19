@@ -1,6 +1,5 @@
 import os
 import psutil
-import json
 
 from settings import Settings
 from settings_api import SettingsAPI

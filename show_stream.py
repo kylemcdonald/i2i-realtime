@@ -11,11 +11,14 @@ class ShowStream(ThreadedWorker):
         super().__init__(has_input=False, has_output=False)
         self.jpeg = TurboJPEG()
         self.context = zmq.Context()
-        self.img_subscriber = self.context.socket(zmq.SUB)
+        self.sock = self.context.socket(zmq.SUB)
+        self.sock.setsockopt(zmq.RCVTIMEO, 100)
+        self.sock.setsockopt(zmq.RCVHWM, 1)
+        self.sock.setsockopt(zmq.LINGER, 0)
         address = f"tcp://localhost:{port}"
         print(f"Connecting to {address}")
-        self.img_subscriber.connect(address)
-        self.img_subscriber.setsockopt(zmq.SUBSCRIBE, b"")
+        self.sock.connect(address)
+        self.sock.setsockopt(zmq.SUBSCRIBE, b"")
         self.fullscreen = True
         self.settings = settings
         self.window_name = f"Port {port}"
@@ -25,9 +28,7 @@ class ShowStream(ThreadedWorker):
         if self.fullscreen:
             cv2.setWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
-    def work(self):
-        msg = self.img_subscriber.recv()
-        
+    def show_msg(self, msg):
         timestamp, index, jpg = msgpack.unpackb(msg)
         img = self.jpeg.decode(jpg, pixel_format=TJPF_RGB)
         input_h, input_w = img.shape[:2]
@@ -49,12 +50,19 @@ class ShowStream(ThreadedWorker):
                 (10, 50),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 1,
-                (0, 255, 255),
+                (255, 255, 0),
                 2,
                 cv2.LINE_AA,
             )
         
         cv2.imshow(self.window_name, img[:, :, ::-1])
+
+    def work(self):
+        try:
+            msg = self.sock.recv(flags=zmq.NOBLOCK, copy=False).bytes
+            self.show_msg(msg)
+        except zmq.Again:
+            pass
 
         key = cv2.waitKey(1)
         # toggle fullscreen when user presses 'f' key
@@ -70,6 +78,6 @@ class ShowStream(ThreadedWorker):
                 )
                 
     def cleanup(self):
-        self.img_subscriber.close()
+        self.sock.close()
         self.context.term()
         cv2.destroyAllWindows()

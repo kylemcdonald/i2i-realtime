@@ -24,6 +24,7 @@ class ZmqSender(ThreadedWorker):
                 "frame_timestamps": frame_timestamps,
                 "indices": indices,
                 "frames": frames,
+                "debug": settings.debug,
                 "parameters": {
                     "prompt": settings.prompt,
                     "num_inference_steps": settings.num_inference_steps,

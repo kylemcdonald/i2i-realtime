@@ -12,3 +12,8 @@ for worker in ${WORKER_MACHINES[@]}; do
         $cp_command && \
         sed -i \"s/WORKER_ID=.*/\${WORKER_ID_LINE}/g\" .env"
 done
+
+for worker in ${WORKER_MACHINES[@]}; do
+    echo "$worker restarting"
+    ssh -t "$worker" "systemctl restart i2i-worker"
+done

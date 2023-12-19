@@ -10,7 +10,9 @@ class ThreadedZmqVideo(ThreadedWorker):
         self.sock.setsockopt(zmq.RCVTIMEO, 100)
         self.sock.setsockopt(zmq.RCVHWM, 1)
         self.sock.setsockopt(zmq.LINGER, 0)
-        self.sock.bind(f"tcp://0.0.0.0:{settings.zmq_video_port}")
+        address = f"tcp://10.0.0.23:{settings.zmq_video_port}"
+        print(self.name, "binding to", address)
+        self.sock.connect(address)
         self.sock.setsockopt(zmq.SUBSCRIBE, b"")
         
     def work(self):
