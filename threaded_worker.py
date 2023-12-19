@@ -1,17 +1,24 @@
+import multiprocessing
 import threading
 import queue
 
 
 class ThreadedWorker:
-    def __init__(self, has_input=True, has_output=True):
+    def __init__(self, has_input=True, has_output=True, mode="thread"):
+        if mode == "thread":
+            self.ParallelClass = threading.Thread
+            self.QueueClass = queue.Queue
+        elif mode == "process":
+            self.ParallelClass = multiprocessing.Process
+            self.QueueClass = multiprocessing.Queue
         if has_input:
-            self.input_queue = queue.Queue()
+            self.input_queue = self.QueueClass()
         if has_output:
-            self.output_queue = queue.Queue()
+            self.output_queue = self.QueueClass()
         self.should_exit = False
-        self.thread = threading.Thread(target=self.run)
+        self.parallel = self.ParallelClass(target=self.run)
         self.name = self.__class__.__name__
-        
+
     def set_name(self, name):
         self.name = name
         return self
@@ -22,17 +29,17 @@ class ThreadedWorker:
         return self
 
     def start(self):
-        if self.thread.is_alive():
+        if self.parallel.is_alive():
             return self
         print(self.name, "starting")
-        self.thread.start()
+        self.parallel.start()
         return self
 
-    # called after the thread is started
+    # called after the parallel is started
     def setup(self):
         pass
 
-    # called before the thread is joined
+    # called before the parallel is joined
     def cleanup(self):
         pass
 
@@ -42,19 +49,16 @@ class ThreadedWorker:
         try:
             while not self.should_exit:
                 if hasattr(self, "input_queue"):
-                    # print(self.name, "waiting for input")
                     try:
                         input = self.input_queue.get(timeout=0.1)
                     except queue.Empty:
                         continue
-                    # print(self.name, "got input")
                     if input is None:
                         break
                     result = self.work(input)
                 else:
                     result = self.work()
                 if result is not None and hasattr(self, "output_queue"):
-                    # print(self.name, "adding to output_queue")
                     self.output_queue.put(result)
         except KeyboardInterrupt:
             print(self.name, "interrupted")
@@ -65,5 +69,5 @@ class ThreadedWorker:
         self.should_exit = True
         if hasattr(self, "input_queue"):
             self.input_queue.put(None)
-        if self.thread.is_alive():
-            self.thread.join()
+        if self.parallel.is_alive():
+            self.parallel.join()

@@ -1,5 +1,5 @@
-import numpy as np
 import cv2
+import numpy as np
 from turbojpeg import TurboJPEG, TJPF_RGB
 import zmq
 import msgpack
@@ -9,21 +9,24 @@ from threaded_worker import ThreadedWorker
 class ShowStream(ThreadedWorker):
     def __init__(self, port, settings):
         super().__init__(has_input=False, has_output=False)
+        self.port = port
+        self.fullscreen = True
+        self.settings = settings
+        
+    def setup(self):
         self.jpeg = TurboJPEG()
+        
         self.context = zmq.Context()
         self.sock = self.context.socket(zmq.SUB)
         self.sock.setsockopt(zmq.RCVTIMEO, 100)
         self.sock.setsockopt(zmq.RCVHWM, 1)
         self.sock.setsockopt(zmq.LINGER, 0)
-        address = f"tcp://localhost:{port}"
+        address = f"tcp://localhost:{self.port}"
         print(f"Connecting to {address}")
         self.sock.connect(address)
         self.sock.setsockopt(zmq.SUBSCRIBE, b"")
-        self.fullscreen = True
-        self.settings = settings
-        self.window_name = f"Port {port}"
         
-    def setup(self):
+        self.window_name = f"Port {self.port}"
         cv2.namedWindow(self.window_name, cv2.WINDOW_GUI_NORMAL)
         if self.fullscreen:
             cv2.setWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
