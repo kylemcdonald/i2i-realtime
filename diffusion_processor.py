@@ -65,6 +65,7 @@ class DiffusionProcessor:
             print("Warmup finished", flush=True)
 
     def run(self, images, prompt, num_inference_steps, strength, seed=None):
+        strength = min(max(1 / num_inference_steps, strength), 1)
         if seed is not None:
             self.generator = torch.manual_seed(seed)
         return self.pipe(
