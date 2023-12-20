@@ -30,7 +30,7 @@ elif settings.mode == "camera":
     controller = OscSettingsController(settings)
 elif settings.mode == "zmq":
     video = ThreadedZmqVideo(settings)
-    controller = None
+    controller = OscSettingsController(settings)
 batcher = BatchingWorker(settings).feed(video)
 sender = ZmqSender(settings).feed(batcher)
 
@@ -55,8 +55,7 @@ reordering_receiver.start()
 output.start()
 
 # start sending end
-if controller:
-    controller.start()
+controller.start()
 sender.start()
 batcher.start()
 video.start()
@@ -86,8 +85,7 @@ output.close()
 reordering_receiver.close()
 
 # close sending end
-if controller:
-    controller.close()
+controller.close()
 settings_api.close()
 sender.close()
 batcher.close()
