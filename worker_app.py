@@ -42,13 +42,6 @@ class WorkerReceiver(ThreadedWorker):
                 
                 # print("receiving", unpacked["indices"])
                 
-                # oldest_timestamp = min(unpacked["timestamps"])
-                # latency = time.time() - oldest_timestamp
-                # if latency > 0.5:
-                    # print(f"{int(latency)}ms dropping old frames")
-                    # continue
-                # print(f"{int(latency)}ms received {unpacked['indices']}")
-                
                 parameters = unpacked["parameters"]
                 images = []
                 for frame in unpacked["frames"]:
@@ -86,13 +79,16 @@ class Processor(ThreadedWorker):
             seed = None
             if parameters["fixed_seed"]:
                 seed = parameters["seed"]
-            results = self.processor.run(
-                images,
-                prompt=parameters["prompt"],
-                num_inference_steps=parameters["num_inference_steps"],
-                strength=parameters["strength"],
-                seed=seed
-            )
+            try:
+                results = self.processor.run(
+                    images,
+                    prompt=parameters["prompt"],
+                    num_inference_steps=parameters["num_inference_steps"],
+                    strength=parameters["strength"],
+                    seed=seed
+                )
+            except:
+                results = images
 
         unpacked["frames"] = results
 
