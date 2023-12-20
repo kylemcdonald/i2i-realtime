@@ -29,6 +29,9 @@ class WorkerReceiver(ThreadedWorker):
 
     def work(self):
         while not self.should_exit:
+            if self.output_queue.not_empty():
+                time.sleep(0.001)
+            
             try:
                 msg = self.sock.recv(flags=zmq.NOBLOCK, copy=False).bytes
                 receive_time = time.time()
