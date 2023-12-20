@@ -28,28 +28,37 @@ class ReorderingReceiver(ThreadedWorker):
         receive_time = time.time()
         unpacked = msgpack.unpackb(msg)
         
+        buffer_size = 30
+        
         index = unpacked["index"]
+        # print(self.name, "received index", index)
+        
         if index == 0:
+            print(self.name, "resetting buffer due to index == 0")
             self.reset_buffer()
+        elif self.next_index and index < self.next_index - buffer_size:
+            print(self.name, f"resetting buffer due to {index} < {self.next_index} - {buffer_size}")
+            self.reset_buffer()
+            
         self.msg_buffer[index] = unpacked  # start by adding to buffer
 
         if unpacked["index"] % 31 == 0: # close to 30, but prime (for logs)
             round_trip = receive_time - unpacked["job_timestamp"]
             worker_id = unpacked["worker_id"]
-            print(f"worker {worker_id} round trip: {int(1000*round_trip)}ms")
+            print(self.name, f"worker {worker_id} round trip: {int(1000*round_trip)}ms")
         
         # drop all old messages to avoid memory leak
-        recent_time = max([e["job_timestamp"] for e in self.msg_buffer.values()])
+        recent_index = max([e["index"] for e in self.msg_buffer.values()])
         for key in list(self.msg_buffer.keys()):
-            timestamp = unpacked["job_timestamp"]
-            latency = recent_time - timestamp
-            if latency > 1:
-                print(f"dropping {key} latency {int(1000*latency)}ms")
+            index_latency = recent_index - key
+            if index_latency > buffer_size:
+                worker_id = self.msg_buffer[key]["worker_id"]
+                print(self.name, f"dropping {key} latency {index_latency} frames from worker #{worker_id}")
                 del self.msg_buffer[key]
                 continue
             
-        if len(self.msg_buffer) > 100:
-            print(f"reordering buffer size: {len(self.msg_buffer)}")
+        if len(self.msg_buffer) > buffer_size:
+            print(self.name, f"reordering buffer size: {len(self.msg_buffer)}")
 
         index = unpacked["index"]
         worker_id = unpacked["worker_id"]
