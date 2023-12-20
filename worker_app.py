@@ -35,25 +35,29 @@ class WorkerReceiver(ThreadedWorker):
                 # print(int(time.time()*1000)%1000, "receiving")
             except zmq.Again:
                 continue
-            unpacked = msgpack.unpackb(msg)
-            # print("incoming length", len(msg))
             
-            # print("receiving", unpacked["indices"])
-            
-            # oldest_timestamp = min(unpacked["timestamps"])
-            # latency = time.time() - oldest_timestamp
-            # if latency > 0.5:
-                # print(f"{int(latency)}ms dropping old frames")
-                # continue
-            # print(f"{int(latency)}ms received {unpacked['indices']}")
-            
-            parameters = unpacked["parameters"]
-            images = []
-            for frame in unpacked["frames"]:
-                img = self.jpeg.decode(frame, pixel_format=TJPF_RGB)
-                images.append(img / 255)
-            unpacked["frames"] = images
-            return unpacked
+            try:
+                unpacked = msgpack.unpackb(msg)
+                # print("incoming length", len(msg))
+                
+                # print("receiving", unpacked["indices"])
+                
+                # oldest_timestamp = min(unpacked["timestamps"])
+                # latency = time.time() - oldest_timestamp
+                # if latency > 0.5:
+                    # print(f"{int(latency)}ms dropping old frames")
+                    # continue
+                # print(f"{int(latency)}ms received {unpacked['indices']}")
+                
+                parameters = unpacked["parameters"]
+                images = []
+                for frame in unpacked["frames"]:
+                    img = self.jpeg.decode(frame, pixel_format=TJPF_RGB)
+                    images.append(img / 255)
+                unpacked["frames"] = images
+                return unpacked
+            except OSError:
+                continue
 
     def cleanup(self):
         self.sock.close()
