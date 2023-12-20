@@ -43,7 +43,7 @@ class DiffusionProcessor:
 
         print("Model compiled")
 
-        self.pipe.to(device="cuda", dtype=torch.float16).to("cuda")
+        self.pipe.to(device="cuda", dtype=torch.float16)
         self.pipe.set_progress_bar_config(disable=True)
 
         print("Model moved to GPU", flush=True)
