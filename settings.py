@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     batch_size: int = Field(default=1)
     strength: float = Field(default=0.7)
     passthrough: bool = Field(default=False)
+    compel: bool = Field(default=True)
     
     # can be changed dynamically
     mirror: bool = Field(default=False)

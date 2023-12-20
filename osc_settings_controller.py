@@ -1,5 +1,6 @@
 from threaded_worker import ThreadedWorker
 from osc_socket import OscSocket
+from pythonosc import osc_packet
 
 class OscSettingsController(ThreadedWorker):
     def __init__(self, settings):
@@ -33,7 +34,11 @@ class OscSettingsController(ThreadedWorker):
             # else:
                 # print("unknown osc", msg.address, msg.params)
         except TypeError:
-            print("osc error")
+            print("osc TypeError")
+        except osc_packet.ParseError:
+            print("osc ParseError")
+        except Exception as e:
+            print("osc error", e)
             
     def cleanup(self):
         self.osc.close()

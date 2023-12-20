@@ -79,6 +79,7 @@ class Processor(ThreadedWorker):
                     prompt=parameters["prompt"],
                     num_inference_steps=parameters["num_inference_steps"],
                     strength=parameters["strength"],
+                    use_compel=parameters["use_compel"],
                     seed=seed
                 )
             except:

@@ -32,6 +32,7 @@ class ZmqSender(ThreadedWorker):
                     "seed": settings.seed,
                     "passthrough": settings.passthrough,
                     "fixed_seed": settings.fixed_seed,
+                    "use_compel": settings.compel
                 },
             }
         )

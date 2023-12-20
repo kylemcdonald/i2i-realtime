@@ -70,6 +70,12 @@ class SettingsAPI:
             print("Updated debug status:", status)
             return {"status": "updated"}
         
+        @app.get("/compel/{status}")
+        async def compel(status: bool):
+            self.settings.compel = status
+            print("Updated compel status:", status)
+            return {"status": "updated"}
+        
         @app.get("/passthrough/{status}")
         async def passthrough(status: bool):
             self.settings.passthrough = status
