@@ -2,8 +2,8 @@ from pydantic.v1 import BaseSettings, Field
 
 class Settings(BaseSettings):
     # config, cannot be changed
-    mode: str
-    worker_id: int
+    mode: str = Field(default="video")
+    worker_id: int = Field(default=0)
     
     output_fast: bool = Field(default=True)
     zmq_video_port: int = Field(default=5554)
@@ -16,8 +16,8 @@ class Settings(BaseSettings):
     
     translation: bool = Field(default=False)
     safety: bool = Field(default=False)
-    local_files_only: bool = Field(default=True)
-    warmup: str
+    local_files_only: bool = Field(default=False)
+    warmup: str = Field(default=None)
     
     # parameters for inference
     prompt: str = Field(default='A psychedelic landscape.')
