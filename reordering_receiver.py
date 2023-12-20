@@ -39,10 +39,10 @@ class ReorderingReceiver(ThreadedWorker):
             print(f"worker {worker_id} round trip: {int(1000*round_trip)}ms")
         
         # drop all old messages to avoid memory leak
-        cur_time = time.time()
+        recent_time = max([e["job_timestamp"] for e in self.msg_buffer.values()])
         for key in list(self.msg_buffer.keys()):
             timestamp = unpacked["job_timestamp"]
-            latency = cur_time - timestamp
+            latency = recent_time - timestamp
             if latency > 1:
                 print(f"dropping {key} latency {int(1000*latency)}ms")
                 del self.msg_buffer[key]
