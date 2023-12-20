@@ -21,6 +21,14 @@ class OscSettingsController(ThreadedWorker):
             seed = msg.params[0]
             # print("OSC seed:", seed)
             self.settings.seed = seed
+        elif msg.address == "/mode":
+            mode = msg.params[0]
+            if mode == "soft":
+                self.settings.num_inference_steps = 3
+                self.settings.strength = 0.5
+            elif mode == "hard":
+                self.settings.num_inference_steps = 2
+                self.settings.strength = 0.7               
         # else:
         #     print("unknown osc", msg.address, msg.params)
             
