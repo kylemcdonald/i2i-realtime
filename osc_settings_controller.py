@@ -21,8 +21,8 @@ class OscSettingsController(ThreadedWorker):
             seed = msg.params[0]
             # print("OSC seed:", seed)
             self.settings.seed = seed
-        else:
-            print("unknown osc", msg.address, msg.params)
+        # else:
+        #     print("unknown osc", msg.address, msg.params)
             
     def cleanup(self):
         self.osc.close()

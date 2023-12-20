@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     safety: bool = Field(default=False)
     local_files_only: bool = Field(default=False)
     warmup: str = Field(default=None)
+    threaded: bool = Field(default=False)
     
     # parameters for inference
     prompt: str = Field(default='A psychedelic landscape.')

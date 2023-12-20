@@ -4,8 +4,6 @@ settings = Settings()
 
 print(f"Starting worker #{settings.worker_id}")
 
-import os
-import psutil
 import zmq
 import msgpack
 import numpy as np
@@ -28,10 +26,7 @@ class WorkerReceiver(ThreadedWorker):
         self.jpeg = TurboJPEG()
 
     def work(self):
-        while not self.should_exit:
-            if self.output_queue.not_empty():
-                time.sleep(0.001)
-            
+        while not self.should_exit:            
             try:
                 msg = self.sock.recv(flags=zmq.NOBLOCK, copy=False).bytes
                 receive_time = time.time()
@@ -41,10 +36,6 @@ class WorkerReceiver(ThreadedWorker):
             
             try:
                 unpacked = msgpack.unpackb(msg)
-                # print("incoming length", len(msg))
-                
-                # print("receiving", unpacked["indices"])
-                
                 parameters = unpacked["parameters"]
                 images = []
                 for frame in unpacked["frames"]:
@@ -160,23 +151,29 @@ receiver = WorkerReceiver(settings.primary_hostname, settings.job_start_port)
 processor = Processor(settings).feed(receiver)
 sender = WorkerSender(settings.primary_hostname, settings.job_finish_port).feed(processor)
 
-# start from end to beginning
-sender.start()
-processor.start()
-receiver.start()
+if settings.threaded:
+    # start from end to beginning
+    sender.start()
+    processor.start()
+    receiver.start()
 
 try:
-    process = psutil.Process(os.getpid())
     while True:
-        memory_usage_bytes = process.memory_info().rss
-        memory_usage_gb = memory_usage_bytes / (1024**3)
-        if memory_usage_gb > 10:
-            print(f"memory usage: {memory_usage_gb:.2f}GB")
-        time.sleep(1)
+        if not settings.threaded:
+            sender.work(
+                processor.work(
+                    receiver.work()))
+        else:
+            time.sleep(1)
 except KeyboardInterrupt:
     pass
 
 # close end to beginning
-sender.close()
-processor.close()
-receiver.close()
+if settings.threaded:
+    sender.close()
+    processor.close()
+    receiver.close()
+else:
+    sender.cleanup()
+    processor.cleanup()
+    receiver.cleanup()
