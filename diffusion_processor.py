@@ -13,6 +13,7 @@ import torch
 import warnings
 
 from compel import Compel, ReturnedEmbeddingsType
+from fixed_size_dict import FixedSizeDict
 
 class DiffusionProcessor:
     def __init__(self, warmup=None, local_files_only=True):
@@ -55,7 +56,7 @@ class DiffusionProcessor:
             returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED,
             requires_pooled=[False, True],
         )
-        self.prompt_cache = {}
+        self.prompt_cache = FixedSizeDict(100)
         print("Prepared compel")
 
         self.generator = torch.manual_seed(0)

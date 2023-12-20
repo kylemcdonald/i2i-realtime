@@ -13,12 +13,12 @@ class OutputFast(ThreadedWorker):
         self.sock.setsockopt(zmq.LINGER, 0)
 
     def work(self, unpacked):
-        job_timestamp = unpacked["job_timestamp"]
+        timestamp = unpacked["frame_timestamp"]
         index = unpacked["index"]
         jpg = unpacked["jpg"]
-        packed = msgpack.packb([job_timestamp, index, jpg])
+        packed = msgpack.packb([timestamp, index, jpg])
         self.sock.send(packed)
-        duration = time.time() - unpacked["frame_timestamp"]
+        # duration = time.time() - unpacked["frame_timestamp"]
         # if index % 31 == 0:
         #     print(f"full loop {int(duration*1000)}ms", flush=True)
 

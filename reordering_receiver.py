@@ -2,6 +2,7 @@ from threaded_worker import ThreadedWorker
 import msgpack
 import time
 import zmq
+from fixed_size_dict import FixedSizeDict
 
 class ReorderingReceiver(ThreadedWorker):
     def __init__(self, port):
@@ -15,7 +16,7 @@ class ReorderingReceiver(ThreadedWorker):
         self.reset_buffer()
         
     def reset_buffer(self):
-        self.msg_buffer = {}
+        self.msg_buffer = FixedSizeDict(100)
         self.next_index = None
         
     def work(self):
@@ -46,19 +47,6 @@ class ReorderingReceiver(ThreadedWorker):
             round_trip = receive_time - unpacked["job_timestamp"]
             worker_id = unpacked["worker_id"]
             print(self.name, f"worker {worker_id} round trip: {int(1000*round_trip)}ms")
-        
-        # drop all old messages to avoid memory leak
-        recent_index = max([e["index"] for e in self.msg_buffer.values()])
-        for key in list(self.msg_buffer.keys()):
-            index_latency = recent_index - key
-            if index_latency > buffer_size:
-                worker_id = self.msg_buffer[key]["worker_id"]
-                print(self.name, f"dropping {key} latency {index_latency} frames from worker #{worker_id}")
-                del self.msg_buffer[key]
-                continue
-            
-        if len(self.msg_buffer) > buffer_size:
-            print(self.name, f"reordering buffer size: {len(self.msg_buffer)}")
 
         index = unpacked["index"]
         worker_id = unpacked["worker_id"]
@@ -69,13 +57,10 @@ class ReorderingReceiver(ThreadedWorker):
             self.next_index = index
 
         diff = abs(index - self.next_index)
-        if diff > 12:
+        if diff > 10:
             # if we got a big jump, let's just jump to it
             # this also works for resetting to 0
             self.next_index = index
-
-        # msg_buffer[index] = unpacked
-        # print(f"incoming: {index} #{worker_id} {latency}ms")
 
         # packed = msgpack.packb([timestamp, index, jpg])
         # publisher.send(packed) # echo mode
