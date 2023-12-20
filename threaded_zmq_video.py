@@ -10,7 +10,7 @@ class ThreadedZmqVideo(ThreadedWorker):
         self.sock.setsockopt(zmq.RCVTIMEO, 100)
         self.sock.setsockopt(zmq.RCVHWM, 1)
         self.sock.setsockopt(zmq.LINGER, 0)
-        address = f"tcp://10.0.0.23:{settings.zmq_video_port}"
+        address = f"tcp://10.0.0.24:{settings.zmq_video_port}"
         print(self.name, "binding to", address)
         self.sock.connect(address)
         self.sock.setsockopt(zmq.SUBSCRIBE, b"")
@@ -22,6 +22,7 @@ class ThreadedZmqVideo(ThreadedWorker):
             except zmq.Again:
                 continue
             timestamp, index, encoded = msgpack.unpackb(msg)
+            # print(self.name, "zmq received", index)
             return timestamp, index, encoded
         
     def cleanup(self):
