@@ -4,6 +4,8 @@ from osc_socket import OscSocket
 class OscSettingsController(ThreadedWorker):
     def __init__(self, settings):
         super().__init__(has_input=False, has_output=False)
+        address = f"0.0.0.0:{settings.osc_port}"
+        print(self.name, f"connecting to OSC on {address}")
         self.osc = OscSocket("0.0.0.0", settings.osc_port)
         self.settings = settings
         
@@ -13,11 +15,11 @@ class OscSettingsController(ThreadedWorker):
             return
         if msg.address == "/prompt":
             prompt = ' '.join(msg.params)
-            print("OSC prompt:", prompt)
+            # print("OSC prompt:", prompt)
             self.settings.prompt = prompt
         elif msg.address == "/seed":
             seed = msg.params[0]
-            print("OSC seed:", seed)
+            # print("OSC seed:", seed)
             self.settings.seed = seed
         else:
             print("unknown osc", msg.address, msg.params)
