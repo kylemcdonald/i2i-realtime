@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     num_inference_steps: int = Field(default=2)
     fixed_seed: bool = Field(default=True)
     seed: int = Field(default=0)
-    batch_size: int = Field(default=1)
+    batch_size: int = Field(default=4)
     strength: float = Field(default=0.7)
     passthrough: bool = Field(default=False)
     compel: bool = Field(default=True)

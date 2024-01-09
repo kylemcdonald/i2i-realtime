@@ -38,6 +38,10 @@ class ThreadedWorker:
     # called after the parallel is started
     def setup(self):
         pass
+    
+    def clear_input(self):
+        with self.input_queue.mutex:
+            self.input_queue.queue.clear()
 
     # called before the parallel is joined
     def cleanup(self):
