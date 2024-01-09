@@ -1,6 +1,9 @@
 import time
 import zmq
-import cv2
+import sdl2
+import sdl2.ext
+import numpy as np
+import ctypes
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -125,44 +128,59 @@ class Display(ThreadedWorker):
     def __init__(self, batch_size):
         super().__init__(has_input=True, has_output=False)
         self.fullscreen = True
-        self.window_name = "i2i"
         self.batch_size = batch_size
-        self.target_frame_duration = 1/30
-        self.last_frame_time = None
+        self.width = 960
+        self.height = 536
+        self.channels = 3
+        self.frame_repeat = 2
     
     def setup(self):
-        cv2.namedWindow(self.window_name, cv2.WINDOW_GUI_NORMAL)
+        sdl2.ext.init()
+        
+        self.window = sdl2.ext.Window("i2i", size=(self.width, self.height))
+        self.renderer = sdl2.ext.Renderer(self.window, flags=sdl2.SDL_RENDERER_ACCELERATED | sdl2.SDL_RENDERER_PRESENTVSYNC)
+        self.window.show()
+        self.event = sdl2.SDL_Event()
+        self.texture = sdl2.SDL_CreateTexture(self.renderer.sdlrenderer,
+                                              sdl2.SDL_PIXELFORMAT_RGB24,
+                                              sdl2.SDL_TEXTUREACCESS_STREAMING,
+                                              self.width, self.height)
+        
         if self.fullscreen:
-            cv2.setWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+            sdl2.SDL_SetWindowFullscreen(self.window.window, sdl2.SDL_WINDOW_FULLSCREEN_DESKTOP)
+        
+        self.clear_input() # drop old frames
     
     def work(self, frame):
-        # this isn't the most elegant solution, but it works
-        if self.input_queue.qsize() > self.batch_size:
-            print("delayed:", self.input_queue.qsize(), flush=True)
-            self.clear_input()
-            
-        cv2.imshow(self.window_name, frame[:,:,::-1])
+        while self.input_queue.qsize() > self.batch_size:
+            print("dropping frame")
+            frame = self.input_queue.get()
         
-        # toggle fullscreen when user presses 'f' key
-        key = cv2.waitKey(1)
-        if key == ord("f") or key == ord("F"):
-            self.fullscreen = not self.fullscreen
-            if self.fullscreen:
-                cv2.setWindowProperty(
-                    self.window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN
-                )
-            else:
-                cv2.setWindowProperty(
-                    self.window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_KEEPRATIO
-                )
-    
-        if self.last_frame_time is not None:
-            elapsed = time.time() - self.last_frame_time
-            if elapsed < self.target_frame_duration:
-                time.sleep(self.target_frame_duration - elapsed)
+        # Event handling
+        while sdl2.SDL_PollEvent(ctypes.byref(self.event)):
+            if self.event.type == sdl2.SDL_QUIT:
+                self.should_exit = True
+            elif self.event.type == sdl2.SDL_KEYDOWN:
+                keysym = self.event.key.keysym.sym
+                if keysym == sdl2.SDLK_f:
+                    self.fullscreen = not self.fullscreen
+                    mode = sdl2.SDL_WINDOW_FULLSCREEN_DESKTOP if self.fullscreen else 0
+                    sdl2.SDL_SetWindowFullscreen(self.window.window, mode)
+
+        # Update texture
+        image_data = (frame * 255).astype(np.uint8)
+        sdl2.SDL_UpdateTexture(self.texture, None, image_data.ctypes.data, self.width * self.channels)
+
+        # Render noise on screen
+        sdl2.SDL_RenderClear(self.renderer.sdlrenderer)
+        for i in range(self.frame_repeat):
+            sdl2.SDL_RenderCopy(self.renderer.sdlrenderer, self.texture, None, None)
+            sdl2.SDL_RenderPresent(self.renderer.sdlrenderer)
+            # Renderer will now wait for vsync
                 
     def cleanup(self):
-        cv2.destroyAllWindows()
+        sdl2.SDL_DestroyTexture(self.texture)
+        sdl2.ext.quit()
 
 try:    
     settings = Settings()
