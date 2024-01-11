@@ -58,7 +58,7 @@ class Receiver(ThreadedWorker):
         print(f"Connecting to {address}")
         self.sock.connect(address)
         self.sock.setsockopt(zmq.SUBSCRIBE, b"")
-        self.sock.setsockopt(zmq.RCVTIMEO, 100)
+        self.sock.setsockopt(zmq.RCVTIMEO, 1)
         self.sock.setsockopt(zmq.RCVHWM, 1)
         self.sock.setsockopt(zmq.LINGER, 0)
         self.batch = []
@@ -201,29 +201,28 @@ class Display(ThreadedWorker):
         sdl2.SDL_DestroyTexture(self.texture)
         sdl2.ext.quit()
 
-try:    
-    settings = Settings()
-    settings_api = SettingsAPI(settings)
-    settings_controller = OscSettingsController(settings)
-    
-    receiver = Receiver(settings.batch_size)
-    processor = Processor(settings).feed(receiver)
-    display = Display(settings.batch_size).feed(processor)
+settings = Settings()
+settings_api = SettingsAPI(settings)
+settings_controller = OscSettingsController(settings)
 
-    settings_api.start()
-    settings_controller.start()
-    display.start()
-    processor.start()
-    receiver.start()
-    
+receiver = Receiver(settings.batch_size)
+processor = Processor(settings).feed(receiver)
+display = Display(settings.batch_size).feed(processor)
+
+settings_api.start()
+settings_controller.start()
+display.start()
+processor.start()
+receiver.start()
+
+try:
     while True:
         time.sleep(1)
-        
-except KeyboardInterrupt:
+except:
     pass
-finally:
-    settings_api.close()
-    settings_controller.close()
-    display.close()
-    processor.close()
-    receiver.close()
+
+settings_api.close()
+settings_controller.close()
+display.close()
+processor.close()
+receiver.close()

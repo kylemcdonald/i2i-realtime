@@ -18,6 +18,7 @@ Wants=network-online.target
 [Service]
 WorkingDirectory=$(pwd)
 ExecStart=$(pwd)/$SCRIPT_NAME
+TimeoutStopSec=5s
 User=$USER
 Restart=always
 [Install]

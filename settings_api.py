@@ -133,6 +133,7 @@ class SettingsAPI:
             pass
 
     def close(self):
+        print("SettingsAPI closing")
         if hasattr(self, "server"):
             self.server.should_exit = True
         self.thread.join()
