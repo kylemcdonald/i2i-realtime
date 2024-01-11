@@ -23,6 +23,10 @@ class OscSettingsController(ThreadedWorker):
                 seed = msg.params[0]
                 # print("OSC seed:", seed)
                 self.settings.seed = seed
+            elif msg.address == "/opacity":
+                opacity = float(msg.paramgs[0])
+                opacity = min(max(opacity, 0), 1)
+                self.settings.opacity = opacity
             elif msg.address == "/mode":
                 mode = msg.params[0]
                 if mode == "soft":

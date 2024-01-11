@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     compel: bool = Field(default=True)
     
     # can be changed dynamically
+    opacity: float = Field(default=1.0)
     mirror: bool = Field(default=False)
     debug: bool = Field(default=False)
     pad: bool = Field(default=False)

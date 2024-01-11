@@ -117,6 +117,13 @@ class SettingsAPI:
             self.settings.strength = value
             print("Updated strength:", self.settings.strength)
             return {"status": "updated"}
+        
+        @app.get("/opacity/{value}")
+        async def opacity(value: float):
+            value = min(max(value, 0), 1)
+            self.settings.opacity = value
+            print("Updated opacity:", self.settings.opacity)
+            return {"status": "updated"}
 
         config = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="info")
         self.server = uvicorn.Server(config=config)

@@ -62,22 +62,33 @@ class Receiver(ThreadedWorker):
         self.sock.setsockopt(zmq.RCVHWM, 1)
         self.sock.setsockopt(zmq.LINGER, 0)
         self.batch = []
+        self.settings_batch = []
         
     def work(self):
-        try:
-            msg = self.sock.recv(flags=zmq.NOBLOCK, copy=False).bytes
-        except zmq.Again:
-            return
+        
+        # recv as quickly as possible to keep up with the camera
+        # when we get a new frame, immediately check if there is a newer one
+        # if there isn't, only then do we continue 
+        msg = None
+        while True:
+            try:
+                msg = self.sock.recv(flags=zmq.NOBLOCK, copy=False).bytes
+            except zmq.Again:
+                if msg is not None:
+                    break
         
         uyvy_image = torch.frombuffer(msg, dtype=torch.uint8).view(1080, 1920, 2).to("cuda")        
         self.batch.append(uyvy_image)
+        self.settings_batch.append(settings.copy())
         
         n = self.batch_size
         if len(self.batch) >= n:
             batch = torch.stack(self.batch[:n]) # save the first n elements
             batch = uyvy_to_rgb_batch(batch)
+            settings_batch = self.settings_batch[:n]
             self.batch = self.batch[n:] # drop the first n elements
-            return batch
+            self.settings_batch = self.settings_batch[n:]
+            return batch, settings_batch
         
     def cleanup(self):
         self.sock.close()
@@ -97,7 +108,8 @@ class Processor(ThreadedWorker):
         self.diffusion_processor = DiffusionProcessor(warmup=warmup)
         self.clear_input() # drop old frames
         
-    def work(self, images):        
+    def work(self, args):        
+        images, settings_batch = args
         # cuda_images = torch.FloatTensor(np.array(images)).to("cuda")
         start_time = time.time()
         results = self.diffusion_processor.run(
@@ -111,6 +123,16 @@ class Processor(ThreadedWorker):
         self.durations.append(duration)
         if len(self.durations) > 10:
             self.durations.pop(0)
+        
+        for frame_settings, image, result in zip(settings_batch, images, results):
+            if frame_settings.opacity == 1:
+                blended = result
+            else:
+                opacity = float(frame_settings.opacity)
+                input_image = np.transpose(image.cpu().numpy(), (1, 2, 0))[:result.shape[0]]
+                blended = result * opacity + input_image * (1 - opacity) 
+            self.output_queue.put(blended)
+            
         duration = np.mean(self.durations)
         
         if self.frame_count > self.print_interval:
@@ -121,9 +143,6 @@ class Processor(ThreadedWorker):
             self.frame_count -= self.print_interval
         self.frame_count += len(results)
         
-        for result in results:
-            self.output_queue.put(result)
-
 class Display(ThreadedWorker):
     def __init__(self, batch_size):
         super().__init__(has_input=True, has_output=False)
