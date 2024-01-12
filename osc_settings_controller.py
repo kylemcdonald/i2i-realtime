@@ -9,6 +9,20 @@ class OscSettingsController(ThreadedWorker):
         print(self.name, f"connecting to OSC on {address}")
         self.osc = OscSocket("0.0.0.0", settings.osc_port)
         self.settings = settings
+        self.prompt_0 = ""
+        self.prompt_1 = ""
+        self.blend = 0.5
+        
+    def update_blend(self):
+        if self.blend == 0:
+            self.settings.prompt = self.prompt_0
+        elif self.blend == 1:
+            self.settings.prompt = self.prompt_1
+        else:
+            a = self.prompt_0
+            b = self.prompt_1
+            t = self.blend
+            self.settings.prompt = f'("{a}", "{b}").blend({1-t:.2f}, {t:.2f})'
         
     def work(self):
         try:
@@ -19,12 +33,29 @@ class OscSettingsController(ThreadedWorker):
                 prompt = ' '.join(msg.params)
                 # print("OSC prompt:", prompt)
                 self.settings.prompt = prompt
+                
+            elif msg.address == "/blend":
+                a, b, t = msg.params
+                self.prompt_0 = a
+                self.prompt_1 = b
+                self.blend = t
+                self.update_blend()
+            elif msg.address == "/prompt/0":
+                self.prompt_0 = ' '.join(msg.params)
+                self.update_blend()
+            elif msg.address == "/prompt/1":
+                self.prompt_1 = ' '.join(msg.params)
+                self.update_blend()
+            elif msg.address == "/blend_t":
+                self.blend = float(msg.params[0])
+                self.update_blend()
+                
             elif msg.address == "/seed":
                 seed = msg.params[0]
                 # print("OSC seed:", seed)
                 self.settings.seed = seed
             elif msg.address == "/opacity":
-                opacity = float(msg.paramgs[0])
+                opacity = float(msg.params[0])
                 opacity = min(max(opacity, 0), 1)
                 self.settings.opacity = opacity
             elif msg.address == "/mode":
