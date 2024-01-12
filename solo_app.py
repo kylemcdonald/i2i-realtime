@@ -102,11 +102,12 @@ class Receiver(ThreadedWorker):
         n = self.batch_size
         if len(self.batch) >= n:
             batch = torch.stack(self.batch[:n]) # save the first n elements
-            channels = batch.shape[1]
-            if channels == 3:
+            if batch.shape[1] == 3:
                 batch = half_size_batch(batch)
-            elif channels == 2:
+            elif batch.shape[-1] == 2:
                 batch = uyvy_to_rgb_batch(batch)
+            else:
+                print("unknown channels")
             settings_batch = self.settings_batch[:n]
             self.batch = self.batch[n:] # drop the first n elements
             self.settings_batch = self.settings_batch[n:]
