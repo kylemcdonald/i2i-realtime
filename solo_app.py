@@ -13,6 +13,18 @@ from settings import Settings
 from settings_api import SettingsAPI
 from osc_settings_controller import OscSettingsController
 
+def unpack_rgb444_image(buffer, image_shape):
+    mask = (2<<10) - 1
+    img = np.frombuffer(buffer, dtype=np.uint32).reshape(*image_shape).byteswap()
+    red = (img >> 20) & mask
+    green = (img >> 10) & mask
+    blue = (img) & mask
+    unpacked_image = np.stack((red, green, blue)).astype(np.float32) / 1024.
+    return unpacked_image
+
+def half_size_batch(batch):
+    return F.interpolate(batch, scale_factor=0.5, mode='area')
+
 def uyvy_to_rgb_batch(uyvy_images):
     # Convert the batch of images to float32
     uyvy_f32 = uyvy_images.to(torch.float32)
@@ -77,14 +89,24 @@ class Receiver(ThreadedWorker):
                 if msg is not None:
                     break
         
-        uyvy_image = torch.frombuffer(msg, dtype=torch.uint8).view(1080, 1920, 2).to("cuda")        
-        self.batch.append(uyvy_image)
+        if len(msg) == 8294400:
+            img = torch.from_numpy(unpack_rgb444_image(msg, (1080, 1920)))
+        elif len(msg) == 4147200:
+            img = torch.frombuffer(msg, dtype=torch.uint8).view(1080, 1920, 2)
+        else:
+            print(f"Unknown image size {len(msg)}")
+            return
+        self.batch.append(img.to("cuda"))
         self.settings_batch.append(settings.copy())
         
         n = self.batch_size
         if len(self.batch) >= n:
             batch = torch.stack(self.batch[:n]) # save the first n elements
-            batch = uyvy_to_rgb_batch(batch)
+            channels = batch.shape[1]
+            if channels == 3:
+                batch = half_size_batch(batch)
+            elif channels == 2:
+                batch = uyvy_to_rgb_batch(batch)
             settings_batch = self.settings_batch[:n]
             self.batch = self.batch[n:] # drop the first n elements
             self.settings_batch = self.settings_batch[n:]
