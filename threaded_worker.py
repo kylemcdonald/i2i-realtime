@@ -1,10 +1,11 @@
 import multiprocessing
 import threading
 import queue
+import time
 
 
 class ThreadedWorker:
-    def __init__(self, has_input=True, has_output=True, mode="thread"):
+    def __init__(self, has_input=True, has_output=True, mode="thread", debug=False):
         if mode == "thread":
             self.ParallelClass = threading.Thread
             self.QueueClass = queue.Queue
@@ -18,6 +19,11 @@ class ThreadedWorker:
         self.should_exit = False
         self.parallel = self.ParallelClass(target=self.run)
         self.name = self.__class__.__name__
+        
+        self.debug = debug
+        self.last_print = time.time()
+        self.print_interval = 1
+        self.durations = []
 
     def set_name(self, name):
         self.name = name
@@ -52,6 +58,8 @@ class ThreadedWorker:
         self.setup()
         try:
             while not self.should_exit:
+                
+                cur_time = time.time()
                 if hasattr(self, "input_queue"):
                     try:
                         input = self.input_queue.get(timeout=0.1)
@@ -59,11 +67,26 @@ class ThreadedWorker:
                         continue
                     if input is None:
                         break
+                    start_time = time.time()
                     result = self.work(input)
                 else:
+                    start_time = time.time()
                     result = self.work()
+                duration = time.time() - start_time
+                
                 if result is not None and hasattr(self, "output_queue"):
                     self.output_queue.put(result)
+                    
+                self.durations.append(duration)
+                if len(self.durations) > 10:
+                    self.durations.pop(0)
+                    
+                time_since_print = cur_time - self.last_print
+                if self.debug and time_since_print > self.print_interval:
+                    duration = sum(self.durations) / len(self.durations)
+                    print(self.name, f"{duration*1000:.2f}ms", flush=True)
+                    self.last_print = cur_time
+                
         except KeyboardInterrupt:
             print(self.name, "interrupted")
         self.cleanup()
