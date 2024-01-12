@@ -70,24 +70,18 @@ class Receiver(ThreadedWorker):
         print(f"Connecting to {address}")
         self.sock.connect(address)
         self.sock.setsockopt(zmq.SUBSCRIBE, b"")
-        self.sock.setsockopt(zmq.RCVTIMEO, 1)
+        self.sock.setsockopt(zmq.RCVTIMEO, 100)
         self.sock.setsockopt(zmq.RCVHWM, 1)
         self.sock.setsockopt(zmq.LINGER, 0)
         self.batch = []
         self.settings_batch = []
         
     def work(self):
-        
-        # recv as quickly as possible to keep up with the camera
-        # when we get a new frame, immediately check if there is a newer one
-        # if there isn't, only then do we continue 
-        msg = None
-        while True:
-            try:
-                msg = self.sock.recv(flags=zmq.NOBLOCK, copy=False).bytes
-            except zmq.Again:
-                if msg is not None:
-                    break
+    
+        try:
+            msg = self.sock.recv(copy=False).bytes
+        except zmq.Again:
+            return
         
         if len(msg) == 8294400:
             img = torch.from_numpy(unpack_rgb444_image(msg, (1080, 1920)))
@@ -96,7 +90,8 @@ class Receiver(ThreadedWorker):
         else:
             print(f"Unknown image size {len(msg)}")
             return
-        self.batch.append(img.to("cuda"))
+        # self.batch.append(img) # on CPU from here
+        self.batch.append(img.to("cuda")) # on GPU from here
         self.settings_batch.append(settings.copy())
         
         n = self.batch_size
@@ -119,11 +114,8 @@ class Receiver(ThreadedWorker):
 
 class Processor(ThreadedWorker):
     def __init__(self, settings):
-        super().__init__(has_input=True, has_output=True)
+        super().__init__(has_input=True, has_output=True, debug=True)
         self.batch_size = settings.batch_size
-        self.durations = []
-        self.frame_count = 0
-        self.print_interval = 30
         self.settings = settings
         
     def setup(self):
@@ -131,10 +123,10 @@ class Processor(ThreadedWorker):
         self.diffusion_processor = DiffusionProcessor(warmup=warmup)
         self.clear_input() # drop old frames
         
-    def work(self, args):        
+    def work(self, args):
         images, settings_batch = args
         # cuda_images = torch.FloatTensor(np.array(images)).to("cuda")
-        start_time = time.time()
+        
         results = self.diffusion_processor.run(
             images=images,
             prompt=self.settings.prompt,
@@ -142,29 +134,15 @@ class Processor(ThreadedWorker):
             num_inference_steps=2,
             strength=0.7,
             seed=self.settings.seed)
-        duration = time.time() - start_time
-        self.durations.append(duration)
-        if len(self.durations) > 10:
-            self.durations.pop(0)
         
         for frame_settings, image, result in zip(settings_batch, images, results):
             if frame_settings.opacity == 1:
-                blended = result
+                self.output_queue.put(result)
             else:
                 opacity = float(frame_settings.opacity)
                 input_image = np.transpose(image.cpu().numpy(), (1, 2, 0))[:result.shape[0]]
                 blended = result * opacity + input_image * (1 - opacity) 
-            self.output_queue.put(blended)
-            
-        duration = np.mean(self.durations)
-        
-        if self.frame_count > self.print_interval:
-            print(
-                f"diffusion {duration*1000:.2f}ms/batch, {duration*1000/self.batch_size:.2f}ms/frame",
-                flush=True,
-            )
-            self.frame_count -= self.print_interval
-        self.frame_count += len(results)
+                self.output_queue.put(blended)
         
 class Display(ThreadedWorker):
     def __init__(self, batch_size):
@@ -195,7 +173,7 @@ class Display(ThreadedWorker):
     
     def work(self, frame):
         while self.input_queue.qsize() > self.batch_size:
-            print("dropping frame")
+            # print("dropping frame")
             frame = self.input_queue.get()
         
         # Event handling
