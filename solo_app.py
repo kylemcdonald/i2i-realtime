@@ -7,6 +7,7 @@ import ctypes
 import numpy as np
 import torch
 import torch.nn.functional as F
+from turbojpeg import TurboJPEG, TJPF_RGB
 from threaded_worker import ThreadedWorker
 from diffusion_processor import DiffusionProcessor
 from settings import Settings
@@ -75,6 +76,7 @@ class Receiver(ThreadedWorker):
         self.sock.setsockopt(zmq.LINGER, 0)
         self.batch = []
         self.settings_batch = []
+        self.jpeg = TurboJPEG()
         
     def work(self):
     
@@ -83,7 +85,10 @@ class Receiver(ThreadedWorker):
         except zmq.Again:
             return
         
-        if len(msg) == 8294400:
+        if msg[:3] == b"\xff\xd8\xff":
+            img = self.jpeg.decode(msg, pixel_format=TJPF_RGB)
+            img = torch.from_numpy(img).permute(2, 0, 1)
+        elif len(msg) == 8294400:
             img = torch.from_numpy(unpack_rgb444_image(msg, (1080, 1920)))
         elif len(msg) == 4147200:
             img = torch.frombuffer(msg, dtype=torch.uint8).view(1080, 1920, 2)
@@ -97,20 +102,30 @@ class Receiver(ThreadedWorker):
         n = self.batch_size
         if len(self.batch) >= n:
             batch = torch.stack(self.batch[:n]) # save the first n elements
-            if batch.shape[1] == 3:
+            if batch.shape[1] == 3: # RGB is stored channel-first
+                batch_size_before = batch.shape
+                batch = batch.to(torch.float32) / 255.0
                 batch = half_size_batch(batch)
-            elif batch.shape[-1] == 2:
+            elif batch.shape[-1] == 2: # UYVY is stored channel-last
                 batch = uyvy_to_rgb_batch(batch)
             else:
-                print("unknown channels")
+                print("unknown channels:", batch.shape)
+            # batch = F.interpolate(batch, scale_factor=0.5, mode='area')
             settings_batch = self.settings_batch[:n]
             self.batch = self.batch[n:] # drop the first n elements
             self.settings_batch = self.settings_batch[n:]
+            # print("sending batch for processing", batch.shape)
             return batch, settings_batch
         
     def cleanup(self):
         self.sock.close()
         self.context.term()
+
+def get_texture_size(texture):
+    w = ctypes.c_int()
+    h = ctypes.c_int()
+    sdl2.SDL_QueryTexture(texture, None, None, ctypes.byref(w), ctypes.byref(h))
+    return w.value, h.value
 
 class Processor(ThreadedWorker):
     def __init__(self, settings):
@@ -119,9 +134,9 @@ class Processor(ThreadedWorker):
         self.settings = settings
         
     def setup(self):
-        warmup = f"{self.batch_size}x540x960x3"
-        self.diffusion_processor = DiffusionProcessor(warmup=warmup)
+        self.diffusion_processor = DiffusionProcessor()
         self.clear_input() # drop old frames
+        self.runs = 0
         
     def work(self, args):
         images, settings_batch = args
@@ -143,28 +158,28 @@ class Processor(ThreadedWorker):
                 input_image = np.transpose(image.cpu().numpy(), (1, 2, 0))[:result.shape[0]]
                 blended = result * opacity + input_image * (1 - opacity) 
                 self.output_queue.put(blended)
+                
+        self.runs += 1
+        if self.runs < 3:
+            print("warming up, dropping old frames")
+            self.clear_input()
         
 class Display(ThreadedWorker):
     def __init__(self, batch_size):
         super().__init__(has_input=True, has_output=False)
         self.fullscreen = True
         self.batch_size = batch_size
-        self.width = 960
-        self.height = 536
-        self.channels = 3
         self.frame_repeat = 2
     
     def setup(self):
         sdl2.ext.init()
+        sdl2.SDL_SetHint(sdl2.SDL_HINT_RENDER_SCALE_QUALITY, b"1")
         
-        self.window = sdl2.ext.Window("i2i", size=(self.width, self.height))
+        self.window = sdl2.ext.Window("i2i", size=(1280, 720))
         self.renderer = sdl2.ext.Renderer(self.window, flags=sdl2.SDL_RENDERER_ACCELERATED | sdl2.SDL_RENDERER_PRESENTVSYNC)
         self.window.show()
         self.event = sdl2.SDL_Event()
-        self.texture = sdl2.SDL_CreateTexture(self.renderer.sdlrenderer,
-                                              sdl2.SDL_PIXELFORMAT_RGB24,
-                                              sdl2.SDL_TEXTUREACCESS_STREAMING,
-                                              self.width, self.height)
+        self.texture = None
         
         if self.fullscreen:
             sdl2.SDL_SetWindowFullscreen(self.window.window, sdl2.SDL_WINDOW_FULLSCREEN_DESKTOP)
@@ -173,7 +188,7 @@ class Display(ThreadedWorker):
     
     def work(self, frame):
         while self.input_queue.qsize() > self.batch_size:
-            # print("dropping frame")
+            # print("dropping display frame")
             frame = self.input_queue.get()
         
         # Event handling
@@ -189,7 +204,21 @@ class Display(ThreadedWorker):
 
         # Update texture
         image_data = (frame * 255).astype(np.uint8)
-        sdl2.SDL_UpdateTexture(self.texture, None, image_data.ctypes.data, self.width * self.channels)
+        height, width, channels = image_data.shape
+        create_texture = False
+        if self.texture is None:
+            create_texture = True
+        else:
+            w, h = get_texture_size(self.texture)
+            if w != width or h != height:
+                sdl2.SDL_DestroyTexture(self.texture)
+                create_texture = True
+        if create_texture:
+            self.texture = sdl2.SDL_CreateTexture(self.renderer.sdlrenderer,
+                                                  sdl2.SDL_PIXELFORMAT_RGB24,
+                                                  sdl2.SDL_TEXTUREACCESS_STREAMING,
+                                                  width, height)
+        sdl2.SDL_UpdateTexture(self.texture, None, image_data.ctypes.data, width * channels)
 
         # Render noise on screen
         sdl2.SDL_RenderClear(self.renderer.sdlrenderer)
@@ -197,7 +226,6 @@ class Display(ThreadedWorker):
             sdl2.SDL_RenderCopy(self.renderer.sdlrenderer, self.texture, None, None)
             sdl2.SDL_RenderPresent(self.renderer.sdlrenderer)
             # Renderer will now wait for vsync
-                
     def cleanup(self):
         sdl2.SDL_DestroyTexture(self.texture)
         sdl2.ext.quit()

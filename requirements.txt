@@ -22,3 +22,5 @@ msgpack==1.0.7
 ffmpeg-python==0.2.0
 python-osc==1.8.3
 natsort==8.4.0
+pysdl2==0.9.16
+pysdl2-dll==2.30.2

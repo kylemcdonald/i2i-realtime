@@ -62,6 +62,15 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+If you are using Anaconda:
+
+```
+sudo apt install libturbojpeg
+conda create -y -n i2i python=3.10
+conda activate i2i
+pip install -r requirements.txt
+```
+
 If you are using Docker:
 
 ```
@@ -98,6 +107,12 @@ sudo systemctl disable --now unattended-upgrades
 sudo systemctl daemon-reload
 sudo systemctl stop unattended-upgrades
 sudo systemctl mask unattended-upgrades
+```
+
+Finally, download the models once (we disable all internet connectivity later so that there are no problems running offline):
+
+```
+python download-models.py
 ```
 
 ## Useful commands
