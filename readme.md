@@ -14,7 +14,7 @@ By default, the results are also displayed fullscreen.
 
 This software runs on multiple computers that are networked together.
 
-First, install Ubuntu 20.04 on a computer with an NVIDIA GPU. When rebooting, disable secure boot so that you can install the NVIDIA drivers.
+First, install Ubuntu 22.04 on a computer with an NVIDIA GPU. When rebooting, disable secure boot so that you can install the NVIDIA drivers.
 
 Open a Terminal and enable ssh access:
 
@@ -56,7 +56,7 @@ cd i2i-realtime
 If you are running natively:
 
 ```
-sudo apt install python3.10 python3.10-dev python3.10-venv libturbojpeg
+sudo apt install python3.10 python3.10-dev python3.10-venv libturbojpeg python3-sdl2
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
