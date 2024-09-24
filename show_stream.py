@@ -28,6 +28,7 @@ class ShowStream(ThreadedWorker):
         
         self.window_name = f"Port {self.port}"
         cv2.namedWindow(self.window_name, cv2.WINDOW_GUI_NORMAL)
+        
         if self.fullscreen:
             cv2.setWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
@@ -40,8 +41,11 @@ class ShowStream(ThreadedWorker):
             img = img[:,::-1,:]
             
         if self.settings.pad:
-            canvas = np.zeros((1024, 1280, 3), dtype=np.uint8)
-            canvas[:, :1024] = img
+            screen_h, screen_w = (1080, 1920)
+            canvas = np.zeros((screen_h, screen_w, 3), dtype=np.uint8)
+            start_x = (screen_w - input_w) // 2
+            start_y = (screen_h - input_h) // 2
+            canvas[start_y:start_y+input_h, start_x:start_x+input_w] = img
             img = canvas
         
         if self.settings.debug:
@@ -79,6 +83,9 @@ class ShowStream(ThreadedWorker):
                 cv2.setWindowProperty(
                     self.window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_KEEPRATIO
                 )
+                
+        if key == ord("d") or key == ord("D"):
+            self.settings.debug = not self.settings.debug
                 
     def cleanup(self):
         self.sock.close()

@@ -138,15 +138,17 @@ To run the worker, enable the virtual env and run the worker:
 
 ```
 source .venv/bin/activate
-python transform.py
+python worker_app.py
 ```
 
 To run the server, do the same:
 
 ```
 source .venv/bin/activate
-python app.py
+python server_app.py
 ```
+
+If you are using "camera" mode, make sure to close the webcam in any other apps before running the server. Otherwise you will get an warning "can't open camera by index" followed by an error.
 
 Both the worker and server have flags that can be configured at the command line. There are also some flags that can be controlled using the .env file, with examples shown in .env.example. For example, when running the worker on a different computer from the server, you should specify the `--primary_hostname` of the server, or set that hostname in the .env so that the worker can communicate with the server.
 
