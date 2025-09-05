@@ -35,18 +35,19 @@ sudo apt install -y curl
 sudo apt install -y git
 
 # install NVIDIA drivers
-wget https://developer.download.nvidia.com/compute/cuda/12.3.1/local_installers/cuda_12.3.1_545.23.08_linux.run
+wget https://developer.download.nvidia.com/compute/cuda/12.6.1/local_installers/cuda_12.6.1_560.35.03_linux.run
 sudo apt remove -y --purge "*nvidia*"
-sudo apt install -y build-essential
-sudo sh cuda_12.3.1_545.23.08_linux.run # select the option to use the NVIDIA drivers with X
+sudo apt install gcc-12 g++-12
+sudo sh cuda_12.6.1_560.35.03_linux.run # select the option to use the NVIDIA drivers with X
 rm cuda_12.3.1_545.23.08_linux.run
 
 # install CuDNN
 # download from https://developer.nvidia.com/rdp/cudnn-download
-sudo dpkg -i cudnn-local-repo-ubuntu2004-8.9.7.29_1.0-1_amd64.deb
-sudo cp /var/cudnn-local-repo-ubuntu2004-8.9.7.29/cudnn-local-30472A84-keyring.gpg /usr/share/keyrings/
+wget https://developer.download.nvidia.com/compute/cudnn/9.4.0/local_installers/cudnn-local-repo-ubuntu2404-9.4.0_1.0-1_amd64.deb
+sudo dpkg -i cudnn-local-repo-ubuntu2404-9.4.0_1.0-1_amd64.deb
+sudo cp /var/cudnn-local-repo-ubuntu2404-9.4.0/cudnn-*-keyring.gpg /usr/share/keyrings/
 sudo apt-get update
-sudo apt-get install libcudnn8
+sudo apt-get -y install cudnn
 
 # grab source
 git clone https://github.com/kylemcdonald/i2i-realtime.git
@@ -66,6 +67,10 @@ If you are using Anaconda:
 
 ```
 sudo apt install libturbojpeg
+wget https://repo.anaconda.com/archive/Anaconda3-2024.06-1-Linux-x86_64.sh
+bash Anaconda3-2024.06-1-Linux-x86_64.sh -b
+$HOME/anaconda3/bin/conda init
+
 conda create -y -n i2i python=3.10
 conda activate i2i
 pip install -r requirements.txt
@@ -120,7 +125,7 @@ python download-models.py
 Remove the cursor after 1 second (applied on reboot):
 
 ```
-sudo apt-get install unclutter
+sudo apt install -y unclutter
 ```
 
 Generate frames of images from a video:
